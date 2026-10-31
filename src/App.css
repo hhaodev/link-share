@@ -1,0 +1,407 @@
+/* ── Reset & base ─────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* ── App shell ────────────────────────────────────────────────────────────── */
+.app {
+  min-height: 100svh;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ───────────────────────────────────────────────────────────────── */
+.app-header {
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+}
+
+.app-header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px 0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-h);
+  flex-shrink: 0;
+}
+
+.logo svg {
+  width: 24px;
+  height: 24px;
+  color: var(--accent);
+}
+
+.app-tagline {
+  color: var(--text);
+  font-size: 14px;
+  margin: 0;
+}
+
+/* ── Main ─────────────────────────────────────────────────────────────────── */
+.app-main {
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+/* ── Create box form ──────────────────────────────────────────────────────── */
+.create-box-form {
+  display: flex;
+  gap: 12px;
+  max-width: 480px;
+}
+
+.box-name-input,
+.link-input,
+.rename-input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text-h);
+  font-size: 15px;
+  font-family: inherit;
+  transition: border-color 0.15s;
+  outline: none;
+}
+
+.box-name-input:focus,
+.link-input:focus,
+.rename-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-bg);
+}
+
+.box-name-input::placeholder,
+.link-input::placeholder {
+  color: var(--text);
+  opacity: 0.6;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+.btn-primary {
+  padding: 10px 18px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+  outline: none;
+}
+
+.btn-primary:hover:not(:disabled) {
+  opacity: 0.85;
+}
+
+.btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+  outline: none;
+}
+
+.btn-icon svg {
+  width: 15px;
+  height: 15px;
+}
+
+.btn-icon:hover {
+  background: var(--border);
+  color: var(--text-h);
+}
+
+.btn-icon.btn-danger:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+/* ── Empty states ─────────────────────────────────────────────────────────── */
+.empty-boxes {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 80px 24px;
+  color: var(--text);
+  opacity: 0.6;
+}
+
+.empty-boxes svg {
+  width: 48px;
+  height: 48px;
+}
+
+/* ── Boxes grid ───────────────────────────────────────────────────────────── */
+.boxes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+  align-items: start;
+}
+
+/* ── Box card ─────────────────────────────────────────────────────────────── */
+.box {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg);
+  box-shadow: var(--shadow);
+}
+
+.box-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--social-bg);
+}
+
+.box-name-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-h);
+  padding: 0;
+  min-width: 0;
+  flex: 1;
+  text-align: left;
+  border-radius: 4px;
+  outline: none;
+}
+
+.box-name-btn:focus-visible {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.box-name {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.edit-icon {
+  width: 13px;
+  height: 13px;
+  color: var(--text);
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.box-name-btn:hover .edit-icon {
+  opacity: 1;
+}
+
+.link-count {
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.rename-form {
+  flex: 1;
+  min-width: 0;
+}
+
+.rename-input {
+  width: 100%;
+  padding: 4px 8px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* ── Add link form ────────────────────────────────────────────────────────── */
+.add-link-form {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.add-link-form .link-input {
+  font-size: 14px;
+}
+
+.add-link-form .btn-primary {
+  padding: 8px 14px;
+  font-size: 14px;
+}
+
+.error-msg {
+  padding: 0 16px 10px;
+  font-size: 13px;
+  color: #ef4444;
+  margin: 0;
+  text-align: left;
+}
+
+/* ── Links list ───────────────────────────────────────────────────────────── */
+.links-list {
+  padding: 8px 0;
+  min-height: 40px;
+}
+
+.empty-state {
+  padding: 20px 16px;
+  font-size: 14px;
+  color: var(--text);
+  opacity: 0.55;
+  text-align: center;
+}
+
+/* ── Link item ────────────────────────────────────────────────────────────── */
+.link-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  transition: background 0.12s;
+}
+
+.link-item:hover {
+  background: var(--accent-bg);
+}
+
+.link-favicon {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.link-url {
+  flex: 1;
+  font-size: 13px;
+  color: var(--accent);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.link-url:hover {
+  text-decoration: underline;
+}
+
+.link-time {
+  font-size: 11px;
+  color: var(--text);
+  opacity: 0.55;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn-icon.btn-reload {
+  margin-left: auto;
+  width: 34px;
+  height: 34px;
+}
+
+.btn-icon.btn-reload svg {
+  width: 16px;
+  height: 16px;
+}
+
+.btn-icon.btn-reload:hover svg {
+  animation: spin 0.5s linear;
+}
+
+/* ── Spinner ──────────────────────────────────────────────────────────────── */
+.spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  flex-shrink: 0;
+}
+
+.spinner--light {
+  border-color: rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Deleting states ──────────────────────────────────────────────────────── */
+.box--deleting {
+  opacity: 0.5;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.link-item--deleting {
+  opacity: 0.4;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .app-main {
+    padding: 20px 16px 48px;
+  }
+
+  .create-box-form {
+    max-width: 100%;
+  }
+
+  .boxes-grid {
+    grid-template-columns: 1fr;
+  }
+}
