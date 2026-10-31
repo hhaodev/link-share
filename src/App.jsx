@@ -85,15 +85,20 @@ function LinkItem({ link, boxId }) {
           }}
         />
       </div>
-      <a
-        href={link.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="link-url"
-        title={link.url}
-      >
-        {link.url}
-      </a>
+      <div className="link-info">
+        <a
+          href={link.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="link-url"
+          title={link.url}
+        >
+          {link.url}
+        </a>
+        {link.description && (
+          <span className="link-desc">{link.description}</span>
+        )}
+      </div>
       <span className="link-time">{timeAgo(link.createdAt?.toDate())}</span>
       <button
         className="btn-icon"
@@ -176,6 +181,7 @@ function LinkItem({ link, boxId }) {
 function Box({ box, onDelete, isDeleting }) {
   const [links, setLinks] = useState([]);
   const [inputUrl, setInputUrl] = useState("");
+  const [inputDesc, setInputDesc] = useState("");
   const [error, setError] = useState("");
   const [isAddingLink, setIsAddingLink] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
@@ -214,9 +220,11 @@ function Box({ box, onDelete, isDeleting }) {
     try {
       await addDoc(collection(db, "boxes", box.id, "links"), {
         url,
+        description: inputDesc.trim(),
         createdAt: serverTimestamp(),
       });
       setInputUrl("");
+      setInputDesc("");
     } catch (err) {
       console.error("Failed to add link:", err);
       setError(`Error: ${err.message}`);
@@ -330,6 +338,16 @@ function Box({ box, onDelete, isDeleting }) {
           }}
           disabled={isAddingLink || isDeleting}
           aria-label="Link URL"
+        />
+        <input
+          type="text"
+          className="link-input link-desc-input"
+          placeholder="Description (optional)…"
+          value={inputDesc}
+          onChange={(e) => setInputDesc(e.target.value)}
+          disabled={isAddingLink || isDeleting}
+          maxLength={120}
+          aria-label="Link description"
         />
         <button
           type="submit"
