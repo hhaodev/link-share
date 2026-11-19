@@ -377,6 +377,34 @@
   animation: spin 0.5s linear;
 }
 
+/* ── Skeleton loading ─────────────────────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.skel {
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--border) 25%,
+    color-mix(in srgb, var(--border) 50%, var(--bg)) 50%,
+    var(--border) 75%
+  );
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+
+.skel-favicon  { width: 16px; height: 16px; border-radius: 4px; flex-shrink: 0; }
+.skel-url      { height: 13px; width: 70%; }
+.skel-desc     { height: 11px; width: 45%; }
+.skel-box-name { height: 16px; width: 120px; border-radius: 6px; }
+.skel-count    { height: 12px; width: 48px; border-radius: 6px; margin-left: auto; }
+.skel-input    { height: 36px; width: 100%; border-radius: 8px; }
+
+.box-skeleton .box-header { pointer-events: none; }
+.box-skeleton .add-link-form { gap: 8px; }
+
 /* ── Spinner ──────────────────────────────────────────────────────────────── */
 .spinner {
   display: inline-block;
