@@ -1,0 +1,250 @@
+- generic [ref=f12e2]:
+  - navigation [ref=f12e3]:
+    - generic [ref=f12e4]:
+      - link [ref=f12e6] [cursor=pointer]:
+        - /url: /
+        - img "logo" [ref=f12e7]
+      - generic [ref=f12e8]:
+        - list [ref=f12e9]:
+          - listitem [ref=f12e10]:
+            - link "Home" [ref=f12e12] [cursor=pointer]:
+              - /url: /
+          - listitem [ref=f12e13]:
+            - generic [ref=f12e14]: Vận chuyển
+          - listitem [ref=f12e20]:
+            - generic [ref=f12e21]: Dịch vụ
+          - listitem [ref=f12e27]:
+            - generic [ref=f12e28]: Đồng Hành Cùng SPX
+          - listitem [ref=f12e34]:
+            - generic [ref=f12e35]: Trung Tâm Trợ Giúp
+        - list [ref=f12e42]:
+          - listitem [ref=f12e43]:
+            - generic [ref=f12e44]: VI
+          - listitem [ref=f12e58]:
+            - generic [ref=f12e60] [cursor=pointer]
+          - listitem [ref=f12e66]:
+            - button "Login" [ref=f12e67] [cursor=pointer]
+  - generic [ref=f12e70]:
+    - generic [ref=f12e71]:
+      - generic [ref=f12e72]:
+        - img "SPX ưu đãi khách hàng mới – Giảm 50% phí ship cho đơn hàng đầu tiên, tiết kiệm chi phí khi trải nghiệm dịch vụ giao hàng SPX." [ref=f12e75]
+        - link [ref=f12e76] [cursor=pointer]:
+          - /url: https://spx.vn/spx-admin
+      - generic [ref=f12e77]:
+        - img "Siêu Tiệc Voucher SPX ngày 20 hàng tháng – Nhận ưu đãi 50% phí ship, x2 điểm SPX và kho voucher lên đến 200 triệu đồng dành cho thành viên." [ref=f12e80]
+        - link [ref=f12e81] [cursor=pointer]:
+          - /url: https://spx.vn/lp/khachhang-thanthiet/
+      - generic [ref=f12e82]:
+        - img "Đầu Cùng Ship – Sao Phải Xoắn cùng SPX và OSAD. Nhập mã SPXSAOPHAIXOAN nhận ưu đãi 50% phí ship, giảm tối đa 100.000đ cho người dùng mới." [ref=f12e85]
+        - link [ref=f12e86] [cursor=pointer]:
+          - /url: https://spx.vn/spx-admin/single-order/create
+      - generic [ref=f12e87]:
+        - img "Thông báo lịch nghỉ lễ SPX Express – Cập nhật thời gian nghỉ lễ và lịch hoạt động của dịch vụ giao hàng SPX." [ref=f12e90]
+        - link [ref=f12e91] [cursor=pointer]:
+          - /url: https://spx.vn/vi/thong-bao-lich-nghi-le-van-hoa.html
+      - generic [ref=f12e92]:
+        - img "Trải nghiệm Giao hàng một phần cùng SPX – Linh hoạt cập nhật thông tin đơn hàng và COD theo nhu cầu thực tế." [ref=f12e95]
+        - link [ref=f12e96] [cursor=pointer]:
+          - /url: https://spx.vn/support-center/faq/category/43
+    - generic [ref=f12e97]:
+      - generic "Go to slide 1" [ref=f12e98] [cursor=pointer]
+      - generic "Go to slide 2" [ref=f12e99] [cursor=pointer]
+      - generic "Go to slide 3" [ref=f12e100] [cursor=pointer]
+      - generic "Go to slide 4" [ref=f12e101] [cursor=pointer]
+      - generic "Go to slide 5" [ref=f12e102] [cursor=pointer]
+  - heading "Giao Hàng Toàn Quốc Nhanh - Rẻ - An Toàn | SPX Express" [level=1] [ref=f12e103]
+  - generic [ref=f12e104]:
+    - generic [ref=f12e105]:
+      - textbox "Nhập mã đơn hàng bạn cần tra cứu" [ref=f12e107]
+      - generic [ref=f12e108] [cursor=pointer]: Theo dõi
+    - generic [ref=f12e110]:
+      - generic [ref=f12e112]:
+        - heading "Bắt đầu tạo đơn" [level=2] [ref=f12e113]
+        - paragraph [ref=f12e114]: Tạo đơn lấy hàng hoặc gửi hàng
+      - link [ref=f12e118] [cursor=pointer]:
+        - /url: /esf-tool
+        - generic [ref=f12e119]:
+          - heading "Ước tính chi phí" [level=2] [ref=f12e120]
+          - paragraph [ref=f12e121]: Ước tính phí vận chuyển
+      - link [ref=f12e125] [cursor=pointer]:
+        - /url: /service-point
+        - generic [ref=f12e126]:
+          - heading "Tra cứu điểm dịch vụ" [level=2] [ref=f12e127]
+          - paragraph [ref=f12e128]: Gửi hàng tại các điểm dịch vụ
+  - generic [ref=f12e132]:
+    - heading "Dịch vụ của SPX" [level=2] [ref=f12e133]
+    - generic [ref=f12e134]:
+      - article [ref=f12e135]:
+        - img "Dịch vụ Lấy Hàng icon" [ref=f12e137]
+        - generic [ref=f12e138]:
+          - heading "Dịch vụ Lấy Hàng" [level=3] [ref=f12e139]
+          - paragraph [ref=f12e140]: Lấy bưu kiện bất cứ lúc nào bạn muốn!
+        - link "Learn More" [ref=f12e141] [cursor=pointer]:
+          - /url: https://spx.vn/vi/dich-vu-lay-hang.html
+      - article [ref=f12e142]:
+        - img "Dịch vụ Gửi Hàng icon" [ref=f12e144]
+        - generic [ref=f12e145]:
+          - heading "Dịch vụ Gửi Hàng" [level=3] [ref=f12e146]
+          - paragraph [ref=f12e147]: Gửi bưu kiện tại các điểm dịch vụ SPX gần nhất!
+        - link "Learn More" [ref=f12e148] [cursor=pointer]:
+          - /url: https://spx.vn/vi/dich-vu-gui-hang.html
+      - article [ref=f12e149]:
+        - img "Dịch vụ COD icon" [ref=f12e151]
+        - generic [ref=f12e152]:
+          - heading "Dịch vụ COD" [level=3] [ref=f12e153]
+          - paragraph [ref=f12e154]: Hỗ trợ giải pháp thanh toán khi nhận hàng!
+        - link "Learn More" [ref=f12e155] [cursor=pointer]:
+          - /url: https://spx.vn/vi/dich-vu-thu-tien-ho.html
+      - article [ref=f12e156]:
+        - img "Dịch vụ Xử Lý Hàng Giá Trị Cao icon" [ref=f12e158]
+        - generic [ref=f12e159]:
+          - heading "Dịch vụ Xử Lý Hàng Giá Trị Cao" [level=3] [ref=f12e160]
+          - paragraph [ref=f12e161]: Giải pháp đảm bảo an toàn cho bưu gửi giá trị cao
+        - link "Learn More" [ref=f12e162] [cursor=pointer]:
+          - /url: https://spx.vn/vi/xu-ly-buu-gui-gia-tri-cao.html
+  - generic [ref=f12e163]:
+    - generic [ref=f12e164]:
+      - heading "Về chúng tôi" [level=2] [ref=f12e165]
+      - generic [ref=f12e166]:
+        - paragraph [ref=f12e167]: SPX là công ty vận tải cung cấp dịch vụ giao hàng toàn quốc, với tiêu chí nhanh, rẻ, an toàn. SPX Express phục vụ đa dạng khách hàng, mang đến các giải pháp vận tải đáp ứng sự tăng trưởng của các doanh nghiệp vừa, nhỏ và cộng đồng địa phương
+        - link "Learn More" [ref=f12e168] [cursor=pointer]:
+          - /url: https://spx.vn/vi/about-us.html
+    - generic [ref=f12e169]:
+      - article [ref=f12e170]:
+        - img "Phủ sóng Toàn quốc" [ref=f12e172]
+        - generic [ref=f12e173]:
+          - heading "Phủ sóng Toàn quốc" [level=3] [ref=f12e174]
+          - paragraph [ref=f12e175]: Phủ sóng tại 34 tỉnh thành
+      - article [ref=f12e176]:
+        - img "Giao hàng Nhanh chóng" [ref=f12e178]
+        - generic [ref=f12e179]:
+          - heading "Giao hàng Nhanh chóng" [level=3] [ref=f12e180]
+          - paragraph [ref=f12e181]: Giao hàng đáng tin cậy và đúng hẹn
+      - article [ref=f12e182]:
+        - img "Ứng dụng Công nghệ" [ref=f12e184]
+        - generic [ref=f12e185]:
+          - heading "Ứng dụng Công nghệ" [level=3] [ref=f12e186]
+          - paragraph [ref=f12e187]: Theo dõi đơn hàng theo thời gian thực
+      - article [ref=f12e188]:
+        - img "Cam kết Bền vững" [ref=f12e190]
+        - generic [ref=f12e191]:
+          - heading "Cam kết Bền vững" [level=3] [ref=f12e192]
+          - paragraph [ref=f12e193]: Dẫn dắt đội ngũ tận tâm
+  - generic [ref=f12e194]:
+    - heading "Đối Tác của Chúng tôi" [level=2] [ref=f12e195]
+    - generic [ref=f12e196]:
+      - img "Shopee" [ref=f12e197]
+      - img "Pancake" [ref=f12e198]
+      - img "hasaki" [ref=f12e199]
+      - img "kiotviet" [ref=f12e200]
+      - img "bitis" [ref=f12e201]
+      - img "canifa" [ref=f12e202]
+      - img "nhanh.vn" [ref=f12e203]
+      - img "sapo" [ref=f12e204]
+      - img "haravan" [ref=f12e205]
+      - img "Cool Mate" [ref=f12e206]
+      - img "Zalo Pay" [ref=f12e207]
+  - article [ref=f12e208]:
+    - textbox [ref=f12e210]:
+      - generic [ref=f12e211]:
+        - heading "SPX EXPRESS - GIAO HÀNG TOÀN QUỐC, NHANH, RẺ VÀ AN TOÀN" [level=3] [ref=f12e212]
+        - generic [ref=f12e215]: SPX Express tự hào là đơn vị vận chuyển và đối tác vận tải hàng đầu, được hàng ngàn nhà bán hàng và khách hàng cá nhân tin tưởng lựa chọn. Với mạng lưới phủ sóng mạnh mẽ, chúng tôi cung cấp các dịch vụ vận chuyển hàng hóa linh hoạt trên toàn quốc. Từ các trung tâm đô thị sầm uất đến vùng sâu vùng xa, công ty vận chuyển SPX Express luôn cam kết mang đến giải pháp giao hàng liền mạch, nhanh chóng, an toàn và tiết kiệm chi phí, trực tiếp thúc đẩy lợi thế cạnh tranh vượt trội cho hoạt động kinh doanh của bạn.
+        - heading "BỘ GIẢI PHÁP VẬN TẢI TOÀN DIỆN" [level=3] [ref=f12e218]
+        - generic [ref=f12e221]: Bạn đang tìm kiếm dịch vụ giao hàng gần đây? EPX Express cung cấp Bộ Giải Pháp Vận Tải toàn diện và chuyên nghiệp trên toàn quốc, bao gồm giao hàng, thương mại điện tử, hỏa tốc và trả hàng tùy chỉnh. Với đội xe quy mô lớn phủ sóng khắp TP.HCM, Hà Nội và nhiều tỉnh thành, SPX cam kết là đơn vị giao hàng uy tín mang lại dịch vụ vận chuyển hàng hóa an toàn, đáng tin cậy với chi phí tối ưu nhất cho mọi nhu cầu gửi hàng của bạn.
+  - contentinfo [ref=f12e224]:
+    - generic [ref=f12e226]:
+      - generic [ref=f12e227]:
+        - generic [ref=f12e228]:
+          - link [ref=f12e230] [cursor=pointer]:
+            - /url: /
+            - img "logo" [ref=f12e231]
+          - generic [ref=f12e232]: SPX EXPRESS APP DOWNLOAD
+          - generic [ref=f12e233]:
+            - img "Download App QR" [ref=f12e235]
+            - generic [ref=f12e236]:
+              - link [ref=f12e237] [cursor=pointer]:
+                - /url: https://apps.apple.com/vn/app/spx-giao-h%C3%A0ng-to%C3%A0n-qu%E1%BB%91c/id6737818793
+                - img "Apple Store" [ref=f12e238]
+              - link [ref=f12e239] [cursor=pointer]:
+                - /url: https://play.google.com/store/apps/details?id=com.shopee.spx.vn.express
+                - img "Google Play" [ref=f12e240]
+        - generic [ref=f12e242]:
+          - generic [ref=f12e243]:
+            - generic [ref=f12e244]: VẬN CHUYỂN
+            - link "Taọ Đơn Hàng Mới" [ref=f12e245] [cursor=pointer]:
+              - /url: https://spx.vn/spx-admin/single-order/create
+            - link "Tạo Đơn Hàng Loạt" [ref=f12e246] [cursor=pointer]:
+              - /url: https://spx.vn/spx-admin/mass-order/create
+            - link "Lên Đơn Với SPX" [ref=f12e247] [cursor=pointer]:
+              - /url: https://spx.vn/vi/shipping/cach-giao-hang-spx.html
+            - link "Ước Tính Cước Phí Hàng Hóa" [ref=f12e248] [cursor=pointer]:
+              - /url: https://spx.vn/esf-tool
+            - link "Quy Định Đóng Gói Hàng Hóa" [ref=f12e249] [cursor=pointer]:
+              - /url: https://spx.vn/vi/shipping/quy-dinh-dong-goi-hang-hoa.html
+            - link "Chất Lượng Dịch Vụ Bưu Chính" [ref=f12e250] [cursor=pointer]:
+              - /url: https://spx.vn/vi/shipping/chat-luong-dich-vu-buu-chinh.html
+            - link "Khu Vực Phục Vụ" [ref=f12e251] [cursor=pointer]:
+              - /url: https://spx.vn/vi/shipping/khu-vuc-phuc-vu.html
+            - link "Bồi Thường Và Xử Lý Khiếu Nại" [ref=f12e252] [cursor=pointer]:
+              - /url: https://spx.vn/vi/shipping/quy-dinh-boi-thuong.html
+            - link "Mẫu Hợp Đồng" [ref=f12e253] [cursor=pointer]:
+              - /url: https://spx.vn/vi/mau-hop-dong.html
+            - link "Mẫu Hợp Đồng Điện Tử" [ref=f12e254] [cursor=pointer]:
+              - /url: https://spx.vn/vi/mau-hop-dong-dien-tu.html
+            - link "Bưu Gửi Không Vận Chuyển" [ref=f12e255] [cursor=pointer]:
+              - /url: https://spx.vn/vi/shipping/buu-gui-khong-van-chuyen.html
+          - generic [ref=f12e256]:
+            - generic [ref=f12e257]: DỊCH VỤ
+            - link "Dịch Vụ Gửi Hàng" [ref=f12e258] [cursor=pointer]:
+              - /url: https://spx.vn/vi/service/dich-vu-gui-hang.html
+            - link "Dịch Vụ Lấy Hàng" [ref=f12e259] [cursor=pointer]:
+              - /url: https://spx.vn/vi/service/dich-vu-lay-hang.html
+            - link "Dịch Vụ Thu Tiền Hộ" [ref=f12e260] [cursor=pointer]:
+              - /url: https://spx.vn/vi/service/dich-vu-thu-tien-ho.html
+            - link "Dịch Vụ Thử Hàng" [ref=f12e261] [cursor=pointer]:
+              - /url: https://spx.vn/vi/service/dich-vu-thu-hang.html
+            - link "Dịch Vụ Giao Hàng Một Phần" [ref=f12e262] [cursor=pointer]:
+              - /url: https://spx.vn/vi/service/giao-hang-mot-phan.html
+            - link "Thu Phí Từ Chối Nhận Hàng" [ref=f12e263] [cursor=pointer]:
+              - /url: https://spx.vn/vi/service/thu-phi-tu-choi-nhan-hang.html
+            - link "Dịch Vụ Yêu Cầu Giao Lại" [ref=f12e264] [cursor=pointer]:
+              - /url: https://spx.vn/vi/service/yeu-cau-giao-lai.html
+            - link "Xử Lý Bưu Gửi Giá Trị Cao" [ref=f12e265] [cursor=pointer]:
+              - /url: https://spx.vn/vi/service/xu-ly-buu-gui-gia-tri-cao.html
+            - link "Ưu Đãi Cho Khách Hàng" [ref=f12e266] [cursor=pointer]:
+              - /url: https://spx.vn/vi/service/chuong-trinh-khuyen-mai.html
+          - generic [ref=f12e267]:
+            - generic [ref=f12e268]: ĐỒNG HÀNH CÙNG SPX
+            - link "Cơ Hội Nghề Nghiệp" [ref=f12e269] [cursor=pointer]:
+              - /url: https://spx.vn/tuyendung
+            - link "Tư Vấn Khách Hàng Mới" [ref=f12e270] [cursor=pointer]:
+              - /url: https://spx.vn/dangky-dichvu-vanchuyen
+            - link "Mở Điểm Giao Nhận SPX" [ref=f12e271] [cursor=pointer]:
+              - /url: https://spx.vn/lp/diemgiaonhan/
+          - generic [ref=f12e272]:
+            - generic [ref=f12e273]: TRUNG TÂM TRỢ GIÚP
+            - link "Thông Tin Liên Hệ" [ref=f12e274] [cursor=pointer]:
+              - /url: https://spx.vn/vi/help-center/thong-tin-lien-he.html
+            - link "Câu Hỏi Thường Gặp" [ref=f12e275] [cursor=pointer]:
+              - /url: https://spx.vn/support-center/faq
+      - generic [ref=f12e277]:
+        - generic [ref=f12e278]:
+          - generic [ref=f12e279]:
+            - link [ref=f12e280] [cursor=pointer]:
+              - /url: https://online.gov.vn/nen-tang/315632a1-7847-4a3b-9757-c916ffb17770
+              - img "certificate" [ref=f12e281]
+            - generic [ref=f12e282]: "Giấy chứng nhận Đăng ký Kinh doanh số: 0316242421 do Sở Tài chính thành phố Hồ Chí Minh cấp lần đầu ngày 21/04/2020, cấp thay đổi lần thứ 5 ngày 04/9/2025."
+          - generic [ref=f12e283]: Công ty TNHH SPX Express
+          - generic [ref=f12e284]: "Địa chỉ trụ sở chính: Tầng 24, Tòa Nhà Saigon Centre 2, 67 Lê Lợi, Phường Sài Gòn, Thành phố Hồ Chí Minh, Việt Nam"
+          - generic [ref=f12e289]: TAN SZE CHERN
+          - generic [ref=f12e295]: 1900 6885
+          - generic [ref=f12e300]: cskh@help.spxexpress.com
+        - link [ref=f12e306] [cursor=pointer]:
+          - /url: https://www.facebook.com/SPXExpress/
+      - generic [ref=f12e311]:
+        - generic [ref=f12e312]:
+          - link "Chính sách bảo mật" [ref=f12e313] [cursor=pointer]:
+            - /url: https://spx.vn/vi/chinh-sach-bao-mat.html
+          - link "Điều khoản sử dụng" [ref=f12e314] [cursor=pointer]:
+            - /url: https://spx.vn/vi/dieu-khoan-su-dung.html
+        - generic [ref=f12e315]: ©️2022 SPX Express All Rights Reserved

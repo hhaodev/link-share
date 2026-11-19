@@ -1,0 +1,5 @@
+- generic [ref=e3]:
+  - generic [ref=e4]: "404"
+  - generic [ref=e27]:
+    - paragraph [ref=e28]: Xin lỗi, trang bạn truy cập không tồn tại
+    - button "Về trang chủ 4s" [ref=e29] [cursor=pointer]
