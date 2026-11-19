@@ -18,11 +18,11 @@ import "./App.css";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState(
-    () => sessionStorage.getItem("activeTab") ?? "links",
+    () => localStorage.getItem("activeTab") ?? "links",
   );
 
   function handleTabChange(tab) {
-    sessionStorage.setItem("activeTab", tab);
+    localStorage.setItem("activeTab", tab);
     setActiveTab(tab);
   }
 
