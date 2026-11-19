@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { deleteDoc, doc } from "firebase/firestore";
 import { db } from "../../firebase";
-import { formatTime } from "../../utils/helpers";
+import { timeAgo } from "../../utils/helpers";
 
 function HistoryItem({ item, userId, onSearch, onDelete }) {
   const [deleting, setDeleting] = useState(false);
@@ -34,8 +34,7 @@ function HistoryItem({ item, userId, onSearch, onDelete }) {
         <span className="watch-status">{item.lastStatus || "—"}</span>
         {item.searchedAt && (
           <span className="watch-time">
-            Tìm lúc:{" "}
-            {formatTime(item.searchedAt?.toDate?.() ?? item.searchedAt, false)}
+            {timeAgo(item.searchedAt?.toDate?.() ?? item.searchedAt)}
           </span>
         )}
       </div>

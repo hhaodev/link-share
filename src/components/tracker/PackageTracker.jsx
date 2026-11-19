@@ -20,7 +20,7 @@ import HistoryList from "./HistoryList";
 function CollectionSkeleton({ title }) {
   return (
     <div className="watchlist">
-      <div className="watchlist-title-row">
+      <div className="watchlist-title-row" style={{ marginBottom: 10 }}>
         <div
           className="skel"
           style={{ height: 15, width: 160, borderRadius: 6 }}

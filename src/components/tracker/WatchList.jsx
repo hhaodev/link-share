@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { deleteDoc, doc } from "firebase/firestore";
 import { db } from "../../firebase";
-import { formatTime } from "../../utils/helpers";
+import { formatTime, timeAgo } from "../../utils/helpers";
 
 function WatchItem({ item, userId, onSearch, onRemove }) {
   const [removing, setRemoving] = useState(false);
@@ -38,7 +38,7 @@ function WatchItem({ item, userId, onSearch, onRemove }) {
         </span>
         {item.lastCheckpointTime && (
           <span className="watch-time">
-            Cập nhật: {formatTime(item.lastCheckpointTime, false)}
+            Cập nhật: {timeAgo(item.lastCheckpointTime)}
           </span>
         )}
       </div>

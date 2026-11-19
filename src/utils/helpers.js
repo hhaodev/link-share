@@ -1,14 +1,31 @@
 // ─── Time ─────────────────────────────────────────────────────────────────────
 
-export function timeAgo(date) {
-  if (!date) return "";
+export function timeAgo(input) {
+  if (!input) return "";
+  let date;
+  if (input instanceof Date) {
+    date = input;
+  } else if (typeof input === "number") {
+    // unix seconds (SPX) hoặc unix ms
+    date = new Date(input > 1e10 ? input : input * 1000);
+  } else {
+    date = new Date(input);
+  }
+  if (isNaN(date)) return "";
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 60) return "vừa xong";
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return `${minutes} phút trước`;
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+  if (hours < 24) return `${hours} giờ trước`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} ngày trước`;
+  // fallback sang ngày cụ thể nếu quá 7 ngày
+  return date.toLocaleDateString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 }
 
 /**
