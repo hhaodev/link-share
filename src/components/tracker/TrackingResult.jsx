@@ -18,12 +18,7 @@ import {
   EyeInvisibleOutlined,
   CloseOutlined,
 } from "@ant-design/icons";
-import {
-  doc,
-  setDoc,
-  deleteDoc,
-  serverTimestamp,
-} from "firebase/firestore";
+import { doc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../../firebase";
 import { useUser } from "../../contexts/UserContext";
 import useTrackingNickname from "../../hooks/useTrackingNickname";
@@ -102,7 +97,9 @@ export default function TrackingResult({
       }
     } catch (err) {
       console.error("Failed to toggle watch:", err);
-      message.error("Không thể cập nhật trạng thái theo dõi. Vui lòng thử lại.");
+      message.error(
+        "Không thể cập nhật trạng thái theo dõi. Vui lòng thử lại.",
+      );
     } finally {
       setToggling(false);
     }
@@ -125,10 +122,17 @@ export default function TrackingResult({
             }}
             align="start"
           >
-            <Text strong={i === 0}>{cp.description}</Text>
+            <Text
+              style={{
+                wordBreak: "break-word",
+              }}
+              strong={i === 0}
+            >
+              {cp.description}
+            </Text>
             <Text
               type="secondary"
-              style={{ fontSize: 12, whiteSpace: "nowrap", flexShrink: 0 }}
+              style={{ fontSize: 10, whiteSpace: "nowrap", flexShrink: 0 }}
             >
               {formatTime(cp.time)}
             </Text>
