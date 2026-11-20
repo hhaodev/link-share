@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Input, Button, Space, Form } from "antd";
+import { Button, Input, message, Space } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "../../firebase";
@@ -20,6 +20,7 @@ export default function CreateBoxForm() {
       setName("");
     } catch (err) {
       console.error("Failed to create box:", err);
+      message.error("Không thể tạo box. Vui lòng thử lại.");
     } finally {
       setCreating(false);
     }

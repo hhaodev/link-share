@@ -4,10 +4,10 @@ import {
   collection,
   doc,
   onSnapshot,
-  orderBy,
   query,
   serverTimestamp,
   setDoc,
+  where,
 } from "firebase/firestore";
 import {
   Avatar,
@@ -18,10 +18,19 @@ import {
   Typography,
   Alert,
   Badge,
+  message,
 } from "antd";
 import { LogoutOutlined } from "@ant-design/icons";
 import { auth, db } from "../../firebase";
+import { UserContext } from "../../contexts/UserContext";
+import useUserCollection from "../../hooks/useUserCollection";
+import {
+  disableNotification,
+  getNotificationDeviceId,
+  syncNotificationToken,
+} from "../../firebase/notification";
 import { fetchTracking } from "../../utils/spxApi";
+import NotificationSettings from "../notificationSetting";
 import LoginScreen from "./LoginScreen";
 import TrackingForm from "./TrackingForm";
 import TrackingResult from "./TrackingResult";
@@ -37,16 +46,21 @@ export default function PackageTracker() {
 
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState("");
-  const [result, setResult] = useState({});
+  const [result, setResult] = useState({ checkpoints: [] });
   const [openTrackingPanel, setOpenTrackingPanel] = useState(false);
 
-  const [watchedItems, setWatchedItems] = useState([]);
-  const [watchedMap, setWatchedMap] = useState({});
-  const [loadingWatch, setLoadingWatch] = useState(false);
-
-  const [historyItems, setHistoryItems] = useState([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
-
+  const watchlist = useUserCollection(user?.uid, "watchlist", "addedAt");
+  const history = useUserCollection(user?.uid, "history", "searchedAt");
+  const watchedItems = watchlist.items;
+  const historyItems = history.items;
+  const watchedMap = Object.fromEntries(
+    watchedItems.map((item) => [item.trackingNumber, true]),
+  );
+  const [notificationStatus, setNotificationStatus] = useState(null);
+  const notificationsEnabled =
+    notificationStatus?.userId === user?.uid
+      ? notificationStatus?.enabled
+      : null;
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
@@ -56,50 +70,50 @@ export default function PackageTracker() {
   }, []);
 
   useEffect(() => {
-    if (!user) {
-      setWatchedItems([]);
-      setWatchedMap({});
-      return;
-    }
-    setLoadingWatch(true);
-    const q = query(
-      collection(db, "users", user.uid, "watchlist"),
-      orderBy("addedAt", "desc"),
+    if (!user) return;
+
+    const userId = user.uid;
+    const unsubscribe = onSnapshot(
+      query(
+        collection(db, "users", userId, "fcmTokens"),
+        where("deviceId", "==", getNotificationDeviceId()),
+      ),
+      (snapshot) => {
+        setNotificationStatus({
+          userId,
+          enabled: !snapshot.empty,
+          error: null,
+        });
+      },
+      (error) => {
+        console.error("Failed to load notification status:", error);
+        setNotificationStatus({ userId, enabled: null, error });
+      },
     );
-    const unsub = onSnapshot(q, (snap) => {
-      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setWatchedItems(items);
-      const map = {};
-      items.forEach((i) => {
-        map[i.trackingNumber] = true;
-      });
-      setWatchedMap(map);
-      setLoadingWatch(false);
+    syncNotificationToken(userId).catch((error) => {
+      console.error("Failed to synchronize the FCM token:", error);
     });
-    return unsub;
+    return unsubscribe;
   }, [user]);
 
-  useEffect(() => {
-    if (!user) {
-      setHistoryItems([]);
-      return;
+  async function handleSignOut() {
+    try {
+      const tokenRevoked = await disableNotification(user.uid);
+      if (!tokenRevoked) {
+        message.warning(
+          "Đã đăng xuất thiết bị khỏi nhận thông báo, nhưng chưa thu hồi được token cục bộ",
+        );
+      }
+      await signOut(auth);
+    } catch (error) {
+      message.error(error.message || "Không thể đăng xuất");
     }
-    setLoadingHistory(true);
-    const q = query(
-      collection(db, "users", user.uid, "history"),
-      orderBy("searchedAt", "desc"),
-    );
-    const unsub = onSnapshot(q, (snap) => {
-      setHistoryItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setLoadingHistory(false);
-    });
-    return unsub;
-  }, [user]);
+  }
 
   async function handleSearch(trackingNumber) {
     setSearchLoading(true);
     setSearchError("");
-    setResult({});
+    setResult({ checkpoints: [] });
     try {
       const data = await fetchTracking(trackingNumber);
       setResult(data);
@@ -123,24 +137,32 @@ export default function PackageTracker() {
     }
   }
 
-  function handleWatchChange(tn, watching) {
-    setWatchedMap((p) => ({ ...p, [tn]: watching }));
-  }
-  function handleRemoveWatch(tn) {
-    setWatchedMap((p) => {
-      const n = { ...p };
-      delete n[tn];
-      return n;
+  function handleWatchChange(trackingNumber, watching) {
+    watchlist.updateItems((items) => {
+      if (!watching) {
+        return items.filter((item) => item.trackingNumber !== trackingNumber);
+      }
+      if (items.some((item) => item.trackingNumber === trackingNumber)) {
+        return items;
+      }
+      return [...items, { trackingNumber }];
     });
   }
-  function handleDeleteHistory(tn) {
-    setHistoryItems((p) => p.filter((i) => i.trackingNumber !== tn));
+  function handleRemoveWatch(trackingNumber) {
+    watchlist.updateItems((items) =>
+      items.filter((item) => item.trackingNumber !== trackingNumber),
+    );
+  }
+  function handleDeleteHistory(trackingNumber) {
+    history.updateItems((items) =>
+      items.filter((item) => item.trackingNumber !== trackingNumber),
+    );
   }
 
   if (authLoading)
     return (
       <div style={{ display: "flex", justifyContent: "center", padding: 80 }}>
-        <Spin size="large" />
+        <Spin />
       </div>
     );
   if (!user) return <LoginScreen />;
@@ -151,19 +173,18 @@ export default function PackageTracker() {
       label: (
         <Space size={6}>
           Đang theo dõi
-          {!loadingWatch && watchedItems.length > 0 && (
+          {!watchlist.loading && watchedItems.length > 0 && (
             <Badge count={watchedItems.length} color="purple" />
           )}
         </Space>
       ),
-      children: loadingWatch ? (
+      children: watchlist.loading ? (
         <div style={{ padding: 24, textAlign: "center" }}>
           <Spin />
         </div>
       ) : (
         <WatchList
           items={watchedItems}
-          userId={user.uid}
           onSearch={handleSearch}
           onRemove={handleRemoveWatch}
         />
@@ -174,19 +195,18 @@ export default function PackageTracker() {
       label: (
         <Space size={6}>
           Lịch sử
-          {!loadingHistory && historyItems.length > 0 && (
-            <Badge count={historyItems.length} color="default" />
+          {!history.loading && historyItems.length > 0 && (
+            <Badge count={historyItems.length} color="purple" />
           )}
         </Space>
       ),
-      children: loadingHistory ? (
+      children: history.loading ? (
         <div style={{ padding: 24, textAlign: "center" }}>
           <Spin />
         </div>
       ) : (
         <HistoryList
           items={historyItems}
-          userId={user.uid}
           onSearch={handleSearch}
           onDelete={handleDeleteHistory}
         />
@@ -195,46 +215,80 @@ export default function PackageTracker() {
   ];
 
   return (
-    <Space vertical size={16} style={{ width: "100%" }}>
-      {/* User bar */}
-      <Space style={{ width: "100%", justifyContent: "space-between" }} wrap>
-        <Space>
-          <Avatar src={user.photoURL} size={32} />
-          <div>
+    <UserContext.Provider value={user}>
+      <Space vertical size={16} style={{ width: "100%" }}>
+        {/* User bar */}
+        <Space style={{ width: "100%", justifyContent: "space-between" }}>
+          <Space>
+            <Avatar src={user.photoURL} size={32} />
             <div>
-              <Text strong>{user.displayName}</Text>
+              <Space size={8} wrap>
+                <Text strong>{user.displayName}</Text>
+                {notificationsEnabled === null ? (
+                  notificationStatus?.userId === user.uid &&
+                  notificationStatus.error ? (
+                    <Text type="danger" style={{ fontSize: 12 }}>
+                      Không tải được trạng thái thông báo
+                    </Text>
+                  ) : (
+                    <Spin size="small" />
+                  )
+                ) : (
+                  <NotificationSettings
+                    enabled={notificationsEnabled}
+                    onChange={(enabled) =>
+                      setNotificationStatus({ userId: user.uid, enabled })
+                    }
+                  />
+                )}
+              </Space>
+              <div>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {user.email}
+                </Text>
+              </div>
             </div>
-            <div>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                {user.email}
-              </Text>
-            </div>
-          </div>
+          </Space>
+          <Button icon={<LogoutOutlined />} onClick={handleSignOut}>
+            Đăng xuất
+          </Button>
         </Space>
-        <Button icon={<LogoutOutlined />} onClick={() => signOut(auth)}>
-          Đăng xuất
-        </Button>
+
+        {/* Search */}
+        <TrackingForm onSearch={handleSearch} loading={searchLoading} />
+        {searchError && <Alert message={searchError} type="error" showIcon />}
+
+        {/* Watch / History tabs */}
+        {watchlist.error && (
+          <Alert
+            type="error"
+            showIcon
+            message="Không thể tải danh sách theo dõi."
+          />
+        )}
+        {history.error && (
+          <Alert
+            type="error"
+            showIcon
+            message="Không thể tải lịch sử tra cứu."
+          />
+        )}
+        <Tabs
+          activeKey={listTab}
+          onChange={setListTab}
+          items={tabItems}
+          size="small"
+        />
+        <TrackingResult
+          key={result.trackingNumber || "empty"}
+          trackingPanelStatus={openTrackingPanel}
+          onClose={() => setOpenTrackingPanel(false)}
+          result={result}
+          watchedItems={watchedItems}
+          watchedMap={watchedMap}
+          onWatchChange={handleWatchChange}
+        />
       </Space>
-
-      {/* Search */}
-      <TrackingForm onSearch={handleSearch} loading={searchLoading} />
-      {searchError && <Alert message={searchError} type="error" showIcon />}
-
-      {/* Watch / History tabs */}
-      <Tabs
-        activeKey={listTab}
-        onChange={setListTab}
-        items={tabItems}
-        size="small"
-      />
-      <TrackingResult
-        trackingPanelStatus={openTrackingPanel}
-        onClose={() => setOpenTrackingPanel(false)}
-        result={result}
-        userId={user.uid}
-        watchedMap={watchedMap}
-        onWatchChange={handleWatchChange}
-      />
-    </Space>
+    </UserContext.Provider>
   );
 }

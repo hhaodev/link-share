@@ -1,58 +1,43 @@
 import { DeleteOutlined, EyeOutlined } from "@ant-design/icons";
-import { Button, List, Tooltip, Typography } from "antd";
-import { deleteDoc, doc } from "firebase/firestore";
-import { useState } from "react";
-import { db } from "../../firebase";
-import { timeAgo } from "../../utils/helpers";
+import { Button, List, Space, Tooltip, Typography } from "antd";
+import useTrackingListActions from "../../hooks/useTrackingListActions";
 
 const { Text } = Typography;
 
-function HistoryItem({ item, userId, onSearch, onDelete }) {
-  const [deleting, setDeleting] = useState(false);
-  const [searching, setSearching] = useState(false);
-
-  async function handleDelete() {
-    setDeleting(true);
-    try {
-      await deleteDoc(doc(db, "users", userId, "history", item.trackingNumber));
-      onDelete(item.trackingNumber);
-    } catch {
-      setDeleting(false);
-    }
-  }
-
-  async function handleSearch() {
-    setSearching(true);
-    try {
-      await onSearch(item.trackingNumber);
-    } finally {
-      setSearching(false);
-    }
-  }
+function HistoryItem({ item, onSearch, onDelete }) {
+  const { deleting, searching, handleDelete, handleSearch } =
+    useTrackingListActions({
+      collectionName: "history",
+      trackingNumber: item.trackingNumber,
+      onSearch,
+      onDelete,
+    });
 
   return (
     <List.Item
-      actions={[
-        <Tooltip title="Tra cứu lại" key="search">
-          <Button
-            type="text"
-            size="small"
-            icon={<EyeOutlined />}
-            loading={searching}
-            onClick={handleSearch}
-          />
-        </Tooltip>,
-        <Tooltip title="Xóa khỏi lịch sử" key="delete">
-          <Button
-            type="text"
-            size="small"
-            danger
-            icon={<DeleteOutlined />}
-            loading={deleting}
-            onClick={handleDelete}
-          />
-        </Tooltip>,
-      ]}
+      extra={
+        <Space vertical>
+          <Tooltip title="Tra cứu lại" key="search">
+            <Button
+              type="text"
+              size="small"
+              icon={<EyeOutlined />}
+              loading={searching}
+              onClick={handleSearch}
+            />
+          </Tooltip>
+          <Tooltip title="Xóa khỏi lịch sử" key="delete">
+            <Button
+              type="text"
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+              loading={deleting}
+              onClick={handleDelete}
+            />
+          </Tooltip>
+        </Space>
+      }
     >
       <div
         style={{
@@ -65,18 +50,13 @@ function HistoryItem({ item, userId, onSearch, onDelete }) {
         <Text strong className="watch-tn">
           {item.trackingNumber}
         </Text>
-        {/* <Text className="watch-status">{item.lastStatus || "—"}</Text> */}
-        {/* {item.searchedAt && (
-          <Text type="secondary" className="watch-time">
-            Tim{timeAgo(item.searchedAt?.toDate?.() ?? item.searchedAt)}
-          </Text>
-        )} */}
+        <Text className="watch-status">{item.lastStatus || "—"}</Text>
       </div>
     </List.Item>
   );
 }
 
-export default function HistoryList({ items, userId, onSearch, onDelete }) {
+export default function HistoryList({ items, onSearch, onDelete }) {
   if (items.length === 0) return null;
 
   return (
@@ -88,7 +68,6 @@ export default function HistoryList({ items, userId, onSearch, onDelete }) {
         <HistoryItem
           key={item.trackingNumber}
           item={item}
-          userId={userId}
           onSearch={onSearch}
           onDelete={onDelete}
         />

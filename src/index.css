@@ -20,6 +20,10 @@ body {
   background: transparent !important;
 }
 
+.ant-layout-header {
+  padding: 0 !important;
+}
+
 /* Chrome, Edge, Safari */
 ::-webkit-scrollbar {
   width: 5px;

@@ -76,8 +76,6 @@ export function getDomain(url) {
   }
 }
 
-// ─── SPX tracking ─────────────────────────────────────────────────────────────
-
 const STATUS_COLOR = {
   delivered: "status--green",
   success: "status--green",
@@ -98,39 +96,4 @@ export function getStatusClass(description = "") {
   if (d.includes("lấy hàng") || d.includes("pickup"))
     return STATUS_COLOR.pickup;
   return STATUS_COLOR.default;
-}
-
-export function normalizeTracking(trackingNumber, records) {
-  const checkpoints = records.map((item) => {
-    const cur = item.current_location ?? {};
-    const nxt = item.next_location ?? {};
-
-    return {
-      time: item.actual_time ?? "",
-      description: item.buyer_description ?? item.tracking_name ?? "",
-      trackingName: item.tracking_name ?? "",
-      milestoneCode: item.milestone_code ?? null,
-      milestoneName: item.milestone_name ?? "",
-      currentLocation: {
-        name: cur.location_name ?? "",
-        address: cur.full_address ?? "",
-        lat: cur.lat ?? "",
-        lng: cur.lng ?? "",
-      },
-      nextLocation: {
-        name: nxt.location_name ?? "",
-        address: nxt.full_address ?? "",
-        lat: nxt.lat ?? "",
-        lng: nxt.lng ?? "",
-      },
-    };
-  });
-
-  const latest = checkpoints[0] ?? null;
-
-  return {
-    trackingNumber,
-    status: latest?.description ?? "Đang cập nhật",
-    checkpoints,
-  };
 }

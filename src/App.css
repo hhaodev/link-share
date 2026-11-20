@@ -106,7 +106,7 @@
 
 .watch-time {
   font-size: 11px;
-  opacity: 0.5;
+  opacity: 0.75;
 }
 
 @media (max-width: 575px) {

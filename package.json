@@ -7,12 +7,14 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "poll:spx": "node scripts/poll-spx.js"
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.4",
     "antd": "^6.7.1",
     "firebase": "^13.1.0",
+    "firebase-admin": "^14.5.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },

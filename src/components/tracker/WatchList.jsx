@@ -1,60 +1,75 @@
-import { DeleteOutlined, EyeOutlined } from "@ant-design/icons";
-import { Button, Empty, List, Tooltip, Typography } from "antd";
-import { deleteDoc, doc } from "firebase/firestore";
-import { useState } from "react";
-import { db } from "../../firebase";
+import {
+  CheckOutlined,
+  CloseOutlined,
+  CopyOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  EyeOutlined,
+} from "@ant-design/icons";
+import {
+  Button,
+  Empty,
+  Input,
+  List,
+  message,
+  Space,
+  Tooltip,
+  Typography,
+} from "antd";
+import useTrackingListActions from "../../hooks/useTrackingListActions";
+import useTrackingNickname from "../../hooks/useTrackingNickname";
 import { timeAgo } from "../../utils/helpers";
 
 const { Text } = Typography;
 
-function WatchItem({ item, userId, onSearch, onRemove }) {
-  const [removing, setRemoving] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+function WatchItem({ item, onSearch, onRemove }) {
+  const { deleting, searching, handleDelete, handleSearch } =
+    useTrackingListActions({
+      collectionName: "watchlist",
+      trackingNumber: item.trackingNumber,
+      onSearch,
+      onDelete: onRemove,
+    });
+  const nicknameEditor = useTrackingNickname(
+    item.trackingNumber,
+    item.nickname,
+  );
 
-  async function handleRemove() {
-    setRemoving(true);
+  async function handleCopyTrackingNumber() {
     try {
-      await deleteDoc(
-        doc(db, "users", userId, "watchlist", item.trackingNumber),
-      );
-      onRemove(item.trackingNumber);
-    } catch {
-      setRemoving(false);
-    }
-  }
-
-  async function handleRefresh() {
-    setRefreshing(true);
-    try {
-      await onSearch(item.trackingNumber);
-    } finally {
-      setRefreshing(false);
+      await navigator.clipboard.writeText(item.trackingNumber);
+      message.success("Đã sao chép mã vận đơn");
+    } catch (error) {
+      console.error("Failed to copy tracking number:", error);
+      message.error("Không thể sao chép mã vận đơn");
     }
   }
 
   return (
     <List.Item
-      actions={[
-        <Tooltip title="Tra cứu ngay" key="refresh">
-          <Button
-            type="text"
-            size="small"
-            icon={<EyeOutlined />}
-            loading={refreshing}
-            onClick={handleRefresh}
-          />
-        </Tooltip>,
-        <Tooltip title="Dừng theo dõi" key="remove">
-          <Button
-            type="text"
-            size="small"
-            danger
-            icon={<DeleteOutlined />}
-            loading={removing}
-            onClick={handleRemove}
-          />
-        </Tooltip>,
-      ]}
+      extra={
+        <Space vertical>
+          <Tooltip title="Tra cứu ngay" key="refresh">
+            <Button
+              type="text"
+              size="small"
+              icon={<EyeOutlined />}
+              loading={searching}
+              onClick={handleSearch}
+            />
+          </Tooltip>
+          <Tooltip title="Dừng theo dõi" key="remove">
+            <Button
+              type="text"
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+              loading={deleting}
+              onClick={handleDelete}
+            />
+          </Tooltip>
+        </Space>
+      }
     >
       <div
         style={{
@@ -64,9 +79,72 @@ function WatchItem({ item, userId, onSearch, onRemove }) {
           minWidth: 0,
         }}
       >
-        <Text strong className="watch-tn">
-          {item.trackingNumber}
-        </Text>
+        {nicknameEditor.editing ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <Input
+              autoFocus
+              size="small"
+              maxLength={60}
+              placeholder="Tên gợi nhớ"
+              value={nicknameEditor.nickname}
+              onChange={(event) =>
+                nicknameEditor.setNickname(event.target.value)
+              }
+              onPressEnter={nicknameEditor.saveNickname}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") nicknameEditor.cancelEditing();
+              }}
+              disabled={nicknameEditor.saving}
+            />
+            <Button
+              type="text"
+              size="small"
+              icon={<CheckOutlined />}
+              loading={nicknameEditor.saving}
+              aria-label="Lưu tên gợi nhớ"
+              onClick={nicknameEditor.saveNickname}
+            />
+            <Button
+              type="text"
+              size="small"
+              icon={<CloseOutlined />}
+              disabled={nicknameEditor.saving}
+              aria-label="Hủy đổi tên"
+              onClick={nicknameEditor.cancelEditing}
+            />
+          </div>
+        ) : (
+          item.nickname && (
+            <Text strong ellipsis={{ tooltip: item.nickname }}>
+              {item.nickname}
+            </Text>
+          )
+        )}
+        <Space size={2}>
+          <Text type="secondary" className="watch-tn">
+            {item.trackingNumber}
+          </Text>
+          <Tooltip title="Sao chép mã vận đơn">
+            <Button
+              type="text"
+              size="small"
+              icon={<CopyOutlined />}
+              onClick={handleCopyTrackingNumber}
+              aria-label="Sao chép mã vận đơn"
+            />
+          </Tooltip>
+          {!nicknameEditor.editing && (
+            <Tooltip title="Đặt tên gợi nhớ">
+              <Button
+                type="text"
+                size="small"
+                icon={<EditOutlined />}
+                onClick={nicknameEditor.startEditing}
+                aria-label="Đặt tên gợi nhớ"
+              />
+            </Tooltip>
+          )}
+        </Space>
         <Text className="watch-status">
           {item.lastStatus || "Đang cập nhật"}
         </Text>
@@ -80,7 +158,7 @@ function WatchItem({ item, userId, onSearch, onRemove }) {
   );
 }
 
-export default function WatchList({ items, userId, onSearch, onRemove }) {
+export default function WatchList({ items, onSearch, onRemove }) {
   if (items.length === 0) {
     return (
       <Empty
@@ -99,7 +177,6 @@ export default function WatchList({ items, userId, onSearch, onRemove }) {
         <WatchItem
           key={item.trackingNumber}
           item={item}
-          userId={userId}
           onSearch={onSearch}
           onRemove={onRemove}
         />

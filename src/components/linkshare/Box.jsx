@@ -1,15 +1,15 @@
-import { useEffect, useRef, useState } from "react";
-import {
-  Card,
-  Input,
-  Button,
-  Space,
-  Typography,
-  Skeleton,
-  Empty,
-  Badge,
-} from "antd";
 import { DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
+import {
+  Badge,
+  Button,
+  Card,
+  Empty,
+  Input,
+  message,
+  Space,
+  Spin,
+  Typography,
+} from "antd";
 import {
   addDoc,
   collection,
@@ -20,6 +20,7 @@ import {
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
+import { useEffect, useRef, useState } from "react";
 import { db } from "../../firebase";
 import { isValidUrl } from "../../utils/helpers";
 import LinkItem from "./LinkItem";
@@ -71,6 +72,7 @@ export default function Box({ box, onDelete, isDeleting }) {
       setInputDesc("");
     } catch (err) {
       console.error("Failed to add link:", err);
+      message.error("Không thể thêm link. Vui lòng thử lại.");
     } finally {
       setIsAddingLink(false);
     }
@@ -87,8 +89,10 @@ export default function Box({ box, onDelete, isDeleting }) {
       setIsRenamingName(true);
       try {
         await updateDoc(doc(db, "boxes", box.id), { name: trimmed });
-      } catch {
+      } catch (error) {
+        console.error("Failed to rename box:", error);
         setNameValue(box.name);
+        message.error("Không thể đổi tên box. Vui lòng thử lại.");
       } finally {
         setIsRenamingName(false);
       }
@@ -185,7 +189,9 @@ export default function Box({ box, onDelete, isDeleting }) {
 
       {/* Links list */}
       {loadingLinks ? (
-        <Skeleton active paragraph={{ rows: 2 }} />
+        <div style={{ padding: 24, textAlign: "center" }}>
+          <Spin />
+        </div>
       ) : links.length === 0 ? (
         <Empty
           description="Chưa có link nào"

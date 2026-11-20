@@ -1,3 +1,5 @@
+import { fetchSPXResponse } from "../src/utils/spx.js";
+
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({
@@ -14,21 +16,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const target = new URL(
-      "https://spx.vn/shipment/order/open/order/get_order_info",
-    );
-
-    target.searchParams.set("spx_tn", spx_tn);
-    target.searchParams.set("language_code", language_code);
-
-    const response = await fetch(target.toString(), {
-      method: "GET",
-      headers: {
-        "User-Agent": "Mozilla/5.0",
-        Accept: "application/json",
-        Referer: "https://spx.vn/",
-      },
-    });
+    const response = await fetchSPXResponse(spx_tn, language_code);
 
     const data = await response.text();
 

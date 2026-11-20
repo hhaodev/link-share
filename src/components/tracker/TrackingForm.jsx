@@ -15,7 +15,7 @@ export default function TrackingForm({ onSearch, loading }) {
     <Space.Compact style={{ width: "100%" }}>
       <Input
         prefix={<SearchOutlined />}
-        placeholder="Nhập mã vận đơn SPX (vd: SPXVN...)"
+        placeholder="Mã vận đơn SPX"
         value={input}
         onChange={(e) => setInput(e.target.value.toUpperCase())}
         onPressEnter={handleSearch}

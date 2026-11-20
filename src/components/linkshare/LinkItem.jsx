@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Space, Tooltip, Typography } from "antd";
+import { Button, message, Space, Tooltip, Typography } from "antd";
 import { CopyOutlined, CheckOutlined, DeleteOutlined } from "@ant-design/icons";
 import { deleteDoc, doc } from "firebase/firestore";
 import { db } from "../../firebase";
@@ -25,7 +25,10 @@ export default function LinkItem({ link, boxId }) {
       await navigator.clipboard.writeText(link.url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {}
+    } catch (error) {
+      console.error("Failed to copy link:", error);
+      message.error("Không thể sao chép link");
+    }
   }
 
   return (
