@@ -20,10 +20,12 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title || "Thông báo mới";
+  if (payload.notification) return;
+
+  const title = payload.data?.title || "Thông báo mới";
 
   self.registration.showNotification(title, {
-    body: payload.notification?.body || "",
+    body: payload.data?.body || "",
     icon: "/icon-192.png",
     data: payload.data || {},
   });
