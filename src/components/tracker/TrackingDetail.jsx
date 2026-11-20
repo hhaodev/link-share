@@ -265,16 +265,18 @@ export default function TrackingDetail({
                 </Space>
               </Space>
             )}
-            <Tag
-              style={{
-                whiteSpace: "normal",
-                wordBreak: "break-word",
-                maxWidth: "100%",
-                display: "inline-block",
-              }}
-            >
-              {status}
-            </Tag>
+            {status && (
+              <Tag
+                style={{
+                  whiteSpace: "normal",
+                  wordBreak: "break-word",
+                  maxWidth: "100%",
+                  display: "inline-block",
+                }}
+              >
+                {status}
+              </Tag>
+            )}
           </Space>
         }
       >

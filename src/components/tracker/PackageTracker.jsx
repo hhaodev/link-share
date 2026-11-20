@@ -39,7 +39,7 @@ import TrackingDetail from "./TrackingDetail";
 
 const { Text } = Typography;
 
-const VITE_INTERVAL_REFRESH_DETAIL = 5 * 1000; // 60 seconds
+const VITE_INTERVAL_REFRESH_DETAIL = 60 * 1000; // 60 seconds
 
 export default function PackageTracker() {
   const [user, setUser] = useState(null);
