@@ -1,42 +1,104 @@
 name: Poll SPX shipments
 
+run-name: "SPX Poll | ${{ github.event_name }} | Run #${{ github.run_number }}"
+
 on:
+  # Run every 5 minutes.
+  # Offset from minute 0 to reduce peak-hour scheduling delays.
   schedule:
     - cron: "2-59/5 * * * *"
+
+  # Allow manual execution for testing.
   workflow_dispatch:
     inputs:
       test_notification:
         description: "Send a test notification to all registered devices"
-        required: true
+        required: false
         type: boolean
         default: false
 
+# Minimum permissions required by this workflow.
 permissions:
   contents: read
 
-concurrency:
-  group: poll-spx
-  cancel-in-progress: false
-
 jobs:
   poll:
+    name: Poll SPX shipments
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+
+    # Prevent a stuck polling process from consuming runner time forever.
+    timeout-minutes: 10
+
+    # Expose trigger information to all steps.
+    env:
+      TZ: Asia/Ho_Chi_Minh
+      TEST_NOTIFICATION: ${{ github.event_name == 'workflow_dispatch' && inputs.test_notification == true && 'true' || 'false' }}
+
     steps:
+      # 1. Print execution information.
+      - name: Log workflow execution
+        shell: bash
+        run: |
+          echo "=========================================="
+          echo "SPX POLLING WORKFLOW"
+          echo "=========================================="
+          echo "Event:             ${{ github.event_name }}"
+          echo "Run ID:            ${{ github.run_id }}"
+          echo "Run number:        ${{ github.run_number }}"
+          echo "Run attempt:       ${{ github.run_attempt }}"
+          echo "Repository:        ${{ github.repository }}"
+          echo "Branch:            ${{ github.ref_name }}"
+          echo "Commit:            ${{ github.sha }}"
+          echo "Workflow:          ${{ github.workflow }}"
+          echo "Scheduled cron:    ${{ github.event.schedule }}"
+          echo "Test notification: $TEST_NOTIFICATION"
+          echo "UTC time:          $(date -u '+%Y-%m-%d %H:%M:%S')"
+          echo "Vietnam time:      $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "=========================================="
+
+      # 2. Checkout latest default branch commit.
       - name: Check out repository
         uses: actions/checkout@v4
 
+      # 3. Setup Node.js.
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: npm
 
+      # 4. Install dependencies.
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --no-audit --no-fund
 
+      # 5. Poll SPX and send notifications.
       - name: Poll shipments and send notifications
-        run: npm run poll:spx
+        shell: bash
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          TEST_NOTIFICATION: ${{ inputs.test_notification && 'true' || 'false' }}
+        run: |
+          echo "=========================================="
+          echo "STARTING SPX POLLING"
+          echo "Started at: $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "Test notification: $TEST_NOTIFICATION"
+          echo "=========================================="
+
+          npm run poll:spx
+
+          echo "=========================================="
+          echo "SPX POLLING COMPLETED"
+          echo "Finished at: $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "=========================================="
+
+      # 6. Always print final execution status.
+      - name: Workflow execution summary
+        if: always()
+        shell: bash
+        run: |
+          echo "=========================================="
+          echo "WORKFLOW SUMMARY"
+          echo "Run ID:       ${{ github.run_id }}"
+          echo "Event:        ${{ github.event_name }}"
+          echo "Conclusion:   ${{ job.status }}"
+          echo "Finished at:  $(date '+%Y-%m-%d %H:%M:%S')"
+          echo "=========================================="
