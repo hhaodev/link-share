@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Input, Button, Space, Form } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { db } from "../firebase";
+import { db } from "../../firebase";
 
 export default function CreateBoxForm() {
   const [name, setName] = useState("");
@@ -26,7 +26,7 @@ export default function CreateBoxForm() {
   }
 
   return (
-    <Space.Compact style={{ maxWidth: 480 }}>
+    <Space.Compact>
       <Input
         placeholder="Tên box mới…"
         value={name}

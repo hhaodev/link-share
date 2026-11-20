@@ -1,6 +1,20 @@
 import { useState } from "react";
-import { Card, Tag, Button, Timeline, Typography, Space, Tooltip } from "antd";
-import { EyeOutlined, EyeInvisibleOutlined } from "@ant-design/icons";
+import {
+  Card,
+  Tag,
+  Button,
+  Timeline,
+  Typography,
+  Space,
+  Tooltip,
+  Drawer,
+} from "antd";
+import {
+  EyeOutlined,
+  EyeInvisibleOutlined,
+  XOutlined,
+  CloseOutlined,
+} from "@ant-design/icons";
 import { doc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../../firebase";
 import { formatTime, getStatusClass } from "../../utils/helpers";
@@ -37,6 +51,8 @@ function LocationBlock({ label, loc }) {
 }
 
 export default function TrackingResult({
+  trackingPanelStatus,
+  onClose,
   result,
   userId,
   watchedMap,
@@ -72,7 +88,7 @@ export default function TrackingResult({
     }
   }
 
-  const timelineItems = checkpoints.map((cp, i) => {
+  const timelineItems = checkpoints?.map((cp, i) => {
     const hasCurrentLoc =
       cp.currentLocation?.name || cp.currentLocation?.address;
     const hasNextLoc = cp.nextLocation?.name || cp.nextLocation?.address;
@@ -128,30 +144,26 @@ export default function TrackingResult({
   });
 
   return (
-    <Card
-      size="small"
+    <Drawer
+      size={"100%"}
+      open={trackingPanelStatus}
+      onClose={onClose}
+      mask={false}
+      closable={false}
       title={
-        <Space vertical style={{ paddingBottom: "10px", paddingTop: "10px" }}>
-          <Space>
-            <Text
-              style={{
-                fontSize: 12,
-                opacity: 0.5,
-                textTransform: "uppercase",
-                letterSpacing: "0.5px",
-              }}
-            >
+        <Space vertical size={6}>
+          <Space wrap>
+            <Text type="secondary" style={{ fontSize: 12 }}>
               Mã vận đơn
             </Text>
-            <Text strong style={{ letterSpacing: "0.5px" }}>
-              {trackingNumber}
-            </Text>
+            <Text strong>{trackingNumber}</Text>
           </Space>
           <Tag color={tagStatus}>{status}</Tag>
         </Space>
       }
       extra={
-        <Space>
+        <Space vertical>
+          <Button size="small" icon={<CloseOutlined />} onClick={onClose} />
           <Tooltip title={isWatching ? "Dừng theo dõi" : "Theo dõi đơn này"}>
             <Button
               type={isWatching ? "primary" : "default"}
@@ -159,18 +171,18 @@ export default function TrackingResult({
               loading={toggling}
               icon={isWatching ? <EyeOutlined /> : <EyeInvisibleOutlined />}
               onClick={handleToggleWatch}
-            >
-              {isWatching ? "Đang theo dõi" : "Theo dõi"}
-            </Button>
+            />
           </Tooltip>
         </Space>
       }
     >
-      {checkpoints.length === 0 ? (
-        <Text type="secondary">Chưa có thông tin hành trình.</Text>
-      ) : (
-        <Timeline items={timelineItems} style={{ marginTop: 8 }} />
-      )}
-    </Card>
+      <Card size="small">
+        {checkpoints?.length === 0 ? (
+          <Text type="secondary">Chưa có thông tin hành trình.</Text>
+        ) : (
+          <Timeline items={timelineItems} style={{ marginTop: 8 }} />
+        )}
+      </Card>
+    </Drawer>
   );
 }

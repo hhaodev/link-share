@@ -20,8 +20,8 @@ import {
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
-import { db } from "../firebase";
-import { isValidUrl } from "../utils/helpers";
+import { db } from "../../firebase";
+import { isValidUrl } from "../../utils/helpers";
 import LinkItem from "./LinkItem";
 
 export default function Box({ box, onDelete, isDeleting }) {
@@ -145,11 +145,7 @@ export default function Box({ box, onDelete, isDeleting }) {
       }
     >
       {/* Add link form */}
-      <Space
-        direction="vertical"
-        style={{ width: "100%", marginBottom: 8 }}
-        size={6}
-      >
+      <Space vertical style={{ width: "100%", marginBottom: 8 }} size={6}>
         <Input
           placeholder="Dán link vào đây…"
           value={inputUrl}

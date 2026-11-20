@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { List, Button, Typography, Tooltip } from "antd";
-import { SearchOutlined, DeleteOutlined } from "@ant-design/icons";
+import { DeleteOutlined, EyeOutlined } from "@ant-design/icons";
+import { Button, List, Tooltip, Typography } from "antd";
 import { deleteDoc, doc } from "firebase/firestore";
+import { useState } from "react";
 import { db } from "../../firebase";
 import { timeAgo } from "../../utils/helpers";
 
@@ -37,7 +37,7 @@ function HistoryItem({ item, userId, onSearch, onDelete }) {
           <Button
             type="text"
             size="small"
-            icon={<SearchOutlined />}
+            icon={<EyeOutlined />}
             loading={searching}
             onClick={handleSearch}
           />
@@ -65,12 +65,12 @@ function HistoryItem({ item, userId, onSearch, onDelete }) {
         <Text strong className="watch-tn">
           {item.trackingNumber}
         </Text>
-        <Text className="watch-status">{item.lastStatus || "—"}</Text>
-        {item.searchedAt && (
+        {/* <Text className="watch-status">{item.lastStatus || "—"}</Text> */}
+        {/* {item.searchedAt && (
           <Text type="secondary" className="watch-time">
-            {timeAgo(item.searchedAt?.toDate?.() ?? item.searchedAt)}
+            Tim{timeAgo(item.searchedAt?.toDate?.() ?? item.searchedAt)}
           </Text>
-        )}
+        )} */}
       </div>
     </List.Item>
   );

@@ -58,7 +58,7 @@ export default function LoginScreen() {
         style={{ maxWidth: 400, width: "100%", textAlign: "center" }}
         variant="outlined"
       >
-        <Space direction="vertical" size={16} style={{ width: "100%" }}>
+        <Space vertical size={16} style={{ width: "100%" }}>
           <div style={{ fontSize: 48 }}>📦</div>
           <Title level={3} style={{ margin: 0 }}>
             Package Tracker

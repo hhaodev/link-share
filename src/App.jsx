@@ -11,8 +11,8 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 import AppHeader from "./components/AppHeader";
-import CreateBoxForm from "./components/CreateBoxForm";
-import Box from "./components/Box";
+import CreateBoxForm from "./components/linkshare/CreateBoxForm";
+import Box from "./components/linkshare/Box";
 import PackageTracker from "./components/tracker/PackageTracker";
 import "./App.css";
 
@@ -68,7 +68,7 @@ export default function App() {
           width: "100%",
           margin: "0 auto",
           padding: "28px 24px 64px",
-          backgroundColor: "#000"
+          backgroundColor: "#000",
         }}
       >
         {activeTab === "links" ? (

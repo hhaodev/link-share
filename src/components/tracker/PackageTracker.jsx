@@ -37,7 +37,8 @@ export default function PackageTracker() {
 
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState("");
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState({});
+  const [openTrackingPanel, setOpenTrackingPanel] = useState(false);
 
   const [watchedItems, setWatchedItems] = useState([]);
   const [watchedMap, setWatchedMap] = useState({});
@@ -98,10 +99,11 @@ export default function PackageTracker() {
   async function handleSearch(trackingNumber) {
     setSearchLoading(true);
     setSearchError("");
-    setResult(null);
+    setResult({});
     try {
       const data = await fetchTracking(trackingNumber);
       setResult(data);
+      setOpenTrackingPanel(true);
       if (user) {
         await setDoc(
           doc(db, "users", user.uid, "history", data.trackingNumber),
@@ -193,7 +195,7 @@ export default function PackageTracker() {
   ];
 
   return (
-    <Space direction="vertical" size={16} style={{ width: "100%" }}>
+    <Space vertical size={16} style={{ width: "100%" }}>
       {/* User bar */}
       <Space style={{ width: "100%", justifyContent: "space-between" }} wrap>
         <Space>
@@ -217,14 +219,6 @@ export default function PackageTracker() {
       {/* Search */}
       <TrackingForm onSearch={handleSearch} loading={searchLoading} />
       {searchError && <Alert message={searchError} type="error" showIcon />}
-      {result && (
-        <TrackingResult
-          result={result}
-          userId={user.uid}
-          watchedMap={watchedMap}
-          onWatchChange={handleWatchChange}
-        />
-      )}
 
       {/* Watch / History tabs */}
       <Tabs
@@ -232,6 +226,14 @@ export default function PackageTracker() {
         onChange={setListTab}
         items={tabItems}
         size="small"
+      />
+      <TrackingResult
+        trackingPanelStatus={openTrackingPanel}
+        onClose={() => setOpenTrackingPanel(false)}
+        result={result}
+        userId={user.uid}
+        watchedMap={watchedMap}
+        onWatchChange={handleWatchChange}
       />
     </Space>
   );

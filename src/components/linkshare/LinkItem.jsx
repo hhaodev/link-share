@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Button, Space, Tooltip, Typography } from "antd";
 import { CopyOutlined, CheckOutlined, DeleteOutlined } from "@ant-design/icons";
 import { deleteDoc, doc } from "firebase/firestore";
-import { db } from "../firebase";
-import { timeAgo, getDomain } from "../utils/helpers";
+import { db } from "../../firebase";
+import { timeAgo, getDomain } from "../../utils/helpers";
 
 export default function LinkItem({ link, boxId }) {
   const [copied, setCopied] = useState(false);

@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { List, Button, Space, Typography, Tooltip, Empty } from "antd";
-import { ReloadOutlined, DeleteOutlined } from "@ant-design/icons";
+import { DeleteOutlined, EyeOutlined } from "@ant-design/icons";
+import { Button, Empty, List, Tooltip, Typography } from "antd";
 import { deleteDoc, doc } from "firebase/firestore";
+import { useState } from "react";
 import { db } from "../../firebase";
 import { timeAgo } from "../../utils/helpers";
 
@@ -39,7 +39,7 @@ function WatchItem({ item, userId, onSearch, onRemove }) {
           <Button
             type="text"
             size="small"
-            icon={<ReloadOutlined />}
+            icon={<EyeOutlined />}
             loading={refreshing}
             onClick={handleRefresh}
           />
