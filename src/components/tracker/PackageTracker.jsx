@@ -9,6 +9,17 @@ import {
   serverTimestamp,
   setDoc,
 } from "firebase/firestore";
+import {
+  Avatar,
+  Button,
+  Space,
+  Spin,
+  Tabs,
+  Typography,
+  Alert,
+  Badge,
+} from "antd";
+import { LogoutOutlined } from "@ant-design/icons";
 import { auth, db } from "../../firebase";
 import { fetchTracking } from "../../utils/spxApi";
 import LoginScreen from "./LoginScreen";
@@ -17,60 +28,24 @@ import TrackingResult from "./TrackingResult";
 import WatchList from "./WatchList";
 import HistoryList from "./HistoryList";
 
-function CollectionSkeleton({ title }) {
-  return (
-    <div className="watchlist">
-      <div className="watchlist-title-row" style={{ marginBottom: 10 }}>
-        <div
-          className="skel"
-          style={{ height: 15, width: 160, borderRadius: 6 }}
-        />
-      </div>
-      <div className="watchlist-items">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="watch-item">
-            <div className="watch-item-info">
-              <div
-                className="skel"
-                style={{ height: 14, width: "55%", borderRadius: 4 }}
-              />
-              <div
-                className="skel"
-                style={{
-                  height: 12,
-                  width: "40%",
-                  borderRadius: 4,
-                  marginTop: 4,
-                }}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+const { Text } = Typography;
 
 export default function PackageTracker() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [listTab, setListTab] = useState("watch"); // "watch" | "history"
+  const [listTab, setListTab] = useState("watch");
 
-  // Tracking state
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState("");
   const [result, setResult] = useState(null);
 
-  // Watchlist
   const [watchedItems, setWatchedItems] = useState([]);
   const [watchedMap, setWatchedMap] = useState({});
   const [loadingWatch, setLoadingWatch] = useState(false);
 
-  // History
   const [historyItems, setHistoryItems] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  // Auth
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
@@ -79,7 +54,6 @@ export default function PackageTracker() {
     return unsub;
   }, []);
 
-  // Watchlist listener
   useEffect(() => {
     if (!user) {
       setWatchedItems([]);
@@ -104,7 +78,6 @@ export default function PackageTracker() {
     return unsub;
   }, [user]);
 
-  // History listener
   useEffect(() => {
     if (!user) {
       setHistoryItems([]);
@@ -129,8 +102,6 @@ export default function PackageTracker() {
     try {
       const data = await fetchTracking(trackingNumber);
       setResult(data);
-
-      // Lưu vào history (upsert — dùng tn làm doc id để tránh trùng)
       if (user) {
         await setDoc(
           doc(db, "users", user.uid, "history", data.trackingNumber),
@@ -150,113 +121,118 @@ export default function PackageTracker() {
     }
   }
 
-  function handleWatchChange(trackingNumber, watching) {
-    setWatchedMap((prev) => ({ ...prev, [trackingNumber]: watching }));
+  function handleWatchChange(tn, watching) {
+    setWatchedMap((p) => ({ ...p, [tn]: watching }));
   }
-
-  function handleRemoveWatch(trackingNumber) {
-    setWatchedMap((prev) => {
-      const n = { ...prev };
-      delete n[trackingNumber];
+  function handleRemoveWatch(tn) {
+    setWatchedMap((p) => {
+      const n = { ...p };
+      delete n[tn];
       return n;
     });
   }
-
-  function handleDeleteHistory(trackingNumber) {
-    setHistoryItems((prev) =>
-      prev.filter((i) => i.trackingNumber !== trackingNumber),
-    );
+  function handleDeleteHistory(tn) {
+    setHistoryItems((p) => p.filter((i) => i.trackingNumber !== tn));
   }
 
-  if (authLoading) {
+  if (authLoading)
     return (
-      <div className="tracker-loading">
-        <span className="spinner" aria-hidden="true" />
+      <div style={{ display: "flex", justifyContent: "center", padding: 80 }}>
+        <Spin size="large" />
       </div>
     );
-  }
-
   if (!user) return <LoginScreen />;
 
-  return (
-    <div className="tracker-page">
-      {/* User bar */}
-      <div className="tracker-user-bar">
-        <img
-          src={user.photoURL}
-          alt={user.displayName}
-          className="user-avatar"
-          width="28"
-          height="28"
-        />
-        <div className="tracker-user-name-info">
-          <span className="user-name">{user.displayName}</span>
-          <span className="user-email">{user.email}</span>
+  const tabItems = [
+    {
+      key: "watch",
+      label: (
+        <Space size={6}>
+          Đang theo dõi
+          {!loadingWatch && watchedItems.length > 0 && (
+            <Badge count={watchedItems.length} color="purple" />
+          )}
+        </Space>
+      ),
+      children: loadingWatch ? (
+        <div style={{ padding: 24, textAlign: "center" }}>
+          <Spin />
         </div>
-        <button className="btn-signout" onClick={() => signOut(auth)}>
+      ) : (
+        <WatchList
+          items={watchedItems}
+          userId={user.uid}
+          onSearch={handleSearch}
+          onRemove={handleRemoveWatch}
+        />
+      ),
+    },
+    {
+      key: "history",
+      label: (
+        <Space size={6}>
+          Lịch sử
+          {!loadingHistory && historyItems.length > 0 && (
+            <Badge count={historyItems.length} color="default" />
+          )}
+        </Space>
+      ),
+      children: loadingHistory ? (
+        <div style={{ padding: 24, textAlign: "center" }}>
+          <Spin />
+        </div>
+      ) : (
+        <HistoryList
+          items={historyItems}
+          userId={user.uid}
+          onSearch={handleSearch}
+          onDelete={handleDeleteHistory}
+        />
+      ),
+    },
+  ];
+
+  return (
+    <Space direction="vertical" size={16} style={{ width: "100%" }}>
+      {/* User bar */}
+      <Space style={{ width: "100%", justifyContent: "space-between" }} wrap>
+        <Space>
+          <Avatar src={user.photoURL} size={32} />
+          <div>
+            <div>
+              <Text strong>{user.displayName}</Text>
+            </div>
+            <div>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {user.email}
+              </Text>
+            </div>
+          </div>
+        </Space>
+        <Button icon={<LogoutOutlined />} onClick={() => signOut(auth)}>
           Đăng xuất
-        </button>
-      </div>
+        </Button>
+      </Space>
 
       {/* Search */}
-      <section className="tracker-section">
-        <TrackingForm onSearch={handleSearch} loading={searchLoading} />
-        {searchError && <p className="tracker-error">{searchError}</p>}
-        {result && (
-          <TrackingResult
-            result={result}
-            userId={user.uid}
-            watchedMap={watchedMap}
-            onWatchChange={handleWatchChange}
-          />
-        )}
-      </section>
+      <TrackingForm onSearch={handleSearch} loading={searchLoading} />
+      {searchError && <Alert message={searchError} type="error" showIcon />}
+      {result && (
+        <TrackingResult
+          result={result}
+          userId={user.uid}
+          watchedMap={watchedMap}
+          onWatchChange={handleWatchChange}
+        />
+      )}
 
-      {/* Watchlist + History tabs */}
-      <section className="tracker-section">
-        <div className="list-tabs">
-          <button
-            className={`list-tab-btn${listTab === "watch" ? " list-tab-btn--active" : ""}`}
-            onClick={() => setListTab("watch")}
-          >
-            Đang theo dõi
-            {!loadingWatch && watchedItems.length > 0 && (
-              <span className="list-tab-badge">{watchedItems.length}</span>
-            )}
-          </button>
-          <button
-            className={`list-tab-btn${listTab === "history" ? " list-tab-btn--active" : ""}`}
-            onClick={() => setListTab("history")}
-          >
-            Lịch sử
-            {!loadingHistory && historyItems.length > 0 && (
-              <span className="list-tab-badge">{historyItems.length}</span>
-            )}
-          </button>
-        </div>
-
-        {listTab === "watch" ? (
-          loadingWatch ? (
-            <CollectionSkeleton />
-          ) : (
-            <WatchList
-              items={watchedItems}
-              userId={user.uid}
-              onSearch={handleSearch}
-              onRemove={handleRemoveWatch}
-            />
-          )
-        ) : loadingHistory ? (
-          <CollectionSkeleton />
-        ) : (
-          <HistoryList
-            items={historyItems}
-            userId={user.uid}
-            onSearch={handleSearch}
-            onDelete={handleDeleteHistory}
-          />
-        )}
-      </section>
-    </div>
+      {/* Watch / History tabs */}
+      <Tabs
+        activeKey={listTab}
+        onChange={setListTab}
+        items={tabItems}
+        size="small"
+      />
+    </Space>
   );
 }

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Input, Button, Space, Form } from "antd";
+import { PlusOutlined } from "@ant-design/icons";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -6,8 +8,7 @@ export default function CreateBoxForm() {
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
 
-  async function handleSubmit(e) {
-    e.preventDefault();
+  async function handleSubmit() {
     const trimmed = name.trim();
     if (!trimmed) return;
     setCreating(true);
@@ -19,38 +20,31 @@ export default function CreateBoxForm() {
       setName("");
     } catch (err) {
       console.error("Failed to create box:", err);
-      alert(`Error: ${err.message}`);
     } finally {
       setCreating(false);
     }
   }
 
   return (
-    <form className="create-box-form" onSubmit={handleSubmit}>
-      <input
-        type="text"
-        className="box-name-input"
-        placeholder="New box name…"
+    <Space.Compact style={{ maxWidth: 480 }}>
+      <Input
+        placeholder="Tên box mới…"
         value={name}
         onChange={(e) => setName(e.target.value)}
+        onPressEnter={handleSubmit}
         disabled={creating}
         maxLength={50}
-        aria-label="New box name"
+        allowClear
       />
-      <button
-        type="submit"
-        className="btn-primary"
-        disabled={creating || !name.trim()}
+      <Button
+        type="primary"
+        icon={<PlusOutlined />}
+        loading={creating}
+        disabled={!name.trim()}
+        onClick={handleSubmit}
       >
-        {creating ? (
-          <>
-            <span className="spinner spinner--light" aria-hidden="true" />
-            Creating…
-          </>
-        ) : (
-          "+ Create Box"
-        )}
-      </button>
-    </form>
+        Tạo Box
+      </Button>
+    </Space.Compact>
   );
 }

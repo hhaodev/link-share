@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Layout, Button, Empty, Skeleton } from "antd";
 import {
   collection,
   doc,
@@ -12,9 +13,10 @@ import { db } from "./firebase";
 import AppHeader from "./components/AppHeader";
 import CreateBoxForm from "./components/CreateBoxForm";
 import Box from "./components/Box";
-import { BoxSkeleton } from "./components/Skeletons";
 import PackageTracker from "./components/tracker/PackageTracker";
 import "./App.css";
+
+const { Content } = Layout;
 
 export default function App() {
   const [activeTab, setActiveTab] = useState(
@@ -26,7 +28,6 @@ export default function App() {
     setActiveTab(tab);
   }
 
-  // ── Link sharing state ──────────────────────────────────────────────────
   const [boxes, setBoxes] = useState([]);
   const [loadingBoxes, setLoadingBoxes] = useState(true);
   const [deletingBoxIds, setDeletingBoxIds] = useState(new Set());
@@ -50,60 +51,40 @@ export default function App() {
       await batch.commit();
     } catch (err) {
       console.error("Failed to delete box:", err);
-      alert(`Error: ${err.message}`);
       setDeletingBoxIds((prev) => {
-        const next = new Set(prev);
-        next.delete(boxId);
-        return next;
+        const n = new Set(prev);
+        n.delete(boxId);
+        return n;
       });
     }
   }
 
   return (
-    <div className="app">
+    <Layout style={{ minHeight: "100svh" }}>
       <AppHeader activeTab={activeTab} onTabChange={handleTabChange} />
-
-      <main className="app-main">
+      <Content
+        style={{
+          maxWidth: 1100,
+          width: "100%",
+          margin: "0 auto",
+          padding: "28px 24px 64px",
+          backgroundColor: "#000"
+        }}
+      >
         {activeTab === "links" ? (
-          <>
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
             <CreateBoxForm />
             {loadingBoxes ? (
               <div className="boxes-grid">
-                <BoxSkeleton />
-                <BoxSkeleton />
-                <BoxSkeleton />
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} active paragraph={{ rows: 3 }} />
+                ))}
               </div>
             ) : boxes.length === 0 ? (
-              <div className="empty-boxes">
-                <svg
-                  viewBox="0 0 48 48"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                  aria-hidden="true"
-                >
-                  <rect
-                    x="8"
-                    y="14"
-                    width="32"
-                    height="26"
-                    rx="3"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  />
-                  <path
-                    d="M16 14V10a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  />
-                  <path
-                    d="M24 22v8M20 26h8"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <p>No boxes yet. Create one to get started!</p>
-              </div>
+              <Empty
+                description="Chưa có box nào. Tạo một box để bắt đầu!"
+                style={{ marginTop: 60 }}
+              />
             ) : (
               <div className="boxes-grid">
                 {boxes.map((box) => (
@@ -116,11 +97,11 @@ export default function App() {
                 ))}
               </div>
             )}
-          </>
+          </div>
         ) : (
           <PackageTracker />
         )}
-      </main>
-    </div>
+      </Content>
+    </Layout>
   );
 }

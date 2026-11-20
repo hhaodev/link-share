@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Button, Space, Tooltip, Typography } from "antd";
+import { CopyOutlined, CheckOutlined, DeleteOutlined } from "@ant-design/icons";
 import { deleteDoc, doc } from "firebase/firestore";
 import { db } from "../firebase";
 import { timeAgo, getDomain } from "../utils/helpers";
@@ -23,13 +25,20 @@ export default function LinkItem({ link, boxId }) {
       await navigator.clipboard.writeText(link.url);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // fallback
-    }
+    } catch {}
   }
 
   return (
-    <div className={`link-item${deleting ? " link-item--deleting" : ""}`}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "7px 12px",
+        opacity: deleting ? 0.4 : 1,
+        transition: "opacity 0.2s",
+      }}
+    >
       <div className="link-favicon">
         <img
           src={`https://www.google.com/s2/favicons?sz=32&domain=${getDomain(link.url)}`}
@@ -41,6 +50,7 @@ export default function LinkItem({ link, boxId }) {
           }}
         />
       </div>
+
       <div className="link-info">
         <a
           href={link.url}
@@ -55,79 +65,38 @@ export default function LinkItem({ link, boxId }) {
           <span className="link-desc">{link.description}</span>
         )}
       </div>
-      <span className="link-time">{timeAgo(link.createdAt?.toDate())}</span>
-      <button
-        className="btn-icon"
-        onClick={handleCopy}
-        disabled={copied}
-        title="Copy link"
-        aria-label="Copy link"
-      >
-        {copied ? (
-          <svg
-            viewBox="0 0 16 16"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <path
-              d="M2 8l4 4 8-8"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        ) : (
-          <svg
-            viewBox="0 0 16 16"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <rect
-              x="5"
-              y="5"
-              width="8"
-              height="8"
-              rx="1.5"
-              stroke="currentColor"
-              strokeWidth="1.5"
-            />
-            <path
-              d="M11 5V4a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h1"
-              stroke="currentColor"
-              strokeWidth="1.5"
-            />
-          </svg>
-        )}
-      </button>
-      <button
-        className="btn-icon btn-danger"
-        onClick={handleDelete}
-        disabled={deleting}
-        title="Delete link"
-        aria-label="Delete link"
-      >
-        {deleting ? (
-          <span className="spinner" aria-hidden="true" />
-        ) : (
-          <svg
-            viewBox="0 0 16 16"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <path
-              d="M3 4h10M6 4V3h4v1M5 4v8h6V4H5z"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        )}
-      </button>
+
+      <Typography.Text type="secondary" style={{ fontSize: 11, flexShrink: 0 }}>
+        {timeAgo(link.createdAt?.toDate())}
+      </Typography.Text>
+
+      <Space size={2}>
+        <Tooltip title={copied ? "Đã copy!" : "Copy link"}>
+          <Button
+            type="text"
+            size="small"
+            icon={
+              copied ? (
+                <CheckOutlined style={{ color: "#52c41a" }} />
+              ) : (
+                <CopyOutlined />
+              )
+            }
+            disabled={copied}
+            onClick={handleCopy}
+          />
+        </Tooltip>
+        <Tooltip title="Xóa">
+          <Button
+            type="text"
+            size="small"
+            danger
+            icon={<DeleteOutlined />}
+            loading={deleting}
+            onClick={handleDelete}
+          />
+        </Tooltip>
+      </Space>
     </div>
   );
 }

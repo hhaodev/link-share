@@ -1,7 +1,18 @@
 import { useState } from "react";
+import { Card, Tag, Button, Timeline, Typography, Space, Tooltip } from "antd";
+import { EyeOutlined, EyeInvisibleOutlined } from "@ant-design/icons";
 import { doc, setDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../../firebase";
 import { formatTime, getStatusClass } from "../../utils/helpers";
+
+const { Text, Link } = Typography;
+
+const STATUS_TAG = {
+  "status--green": "success",
+  "status--blue": "processing",
+  "status--red": "error",
+  "status--gray": "default",
+};
 
 function LocationBlock({ label, loc }) {
   if (!loc?.name && !loc?.address) return null;
@@ -13,52 +24,14 @@ function LocationBlock({ label, loc }) {
         <span className="timeline-location-addr">{loc.address}</span>
       )}
       {loc.lat && loc.lng && (
-        <a
+        <Link
           className="timeline-location-map"
           href={`https://maps.google.com/?q=${loc.lat},${loc.lng}`}
           target="_blank"
-          rel="noopener noreferrer"
         >
           Xem bản đồ ↗
-        </a>
+        </Link>
       )}
-    </div>
-  );
-}
-
-function CheckpointItem({ cp, isLatest }) {
-  const hasCurrentLoc = cp.currentLocation?.name || cp.currentLocation?.address;
-  const hasNextLoc = cp.nextLocation?.name || cp.nextLocation?.address;
-  const hasDetail = hasCurrentLoc || hasNextLoc;
-
-  return (
-    <div className={`timeline-item${isLatest ? " timeline-item--latest" : ""}`}>
-      <div className="timeline-dot" />
-      <div className="timeline-content">
-        <div className="timeline-main">
-          <p className="timeline-desc">{cp.description}</p>
-          <p className="timeline-time">{formatTime(cp.time)}</p>
-        </div>
-
-        {cp.milestoneName && (
-          <span
-            className={`timeline-milestone ${getStatusClass(cp.description)}`}
-          >
-            {cp.milestoneName}
-          </span>
-        )}
-
-        {hasDetail && (
-          <div className="timeline-detail">
-            {hasCurrentLoc && (
-              <LocationBlock label="Vị trí hiện tại" loc={cp.currentLocation} />
-            )}
-            {hasNextLoc && (
-              <LocationBlock label="Điểm tiếp theo" loc={cp.nextLocation} />
-            )}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
@@ -72,6 +45,8 @@ export default function TrackingResult({
   const { trackingNumber, status, checkpoints } = result;
   const isWatching = !!watchedMap[trackingNumber];
   const [toggling, setToggling] = useState(false);
+  const statusClass = getStatusClass(status);
+  const tagStatus = STATUS_TAG[statusClass] ?? "default";
 
   async function handleToggleWatch() {
     setToggling(true);
@@ -97,58 +72,105 @@ export default function TrackingResult({
     }
   }
 
-  return (
-    <div className="tracking-result">
-      <div className="result-header">
-        <div className="result-tn">
-          <span className="result-tn-label">Mã vận đơn</span>
-          <span className="result-tn-value">{trackingNumber}</span>
-        </div>
-        <div className={`result-status ${getStatusClass(status)}`}>
-          {status}
-        </div>
-        <button
-          className={`btn-watch${isWatching ? " btn-watch--active" : ""}`}
-          onClick={handleToggleWatch}
-          disabled={toggling}
-          title={isWatching ? "Dừng theo dõi" : "Theo dõi đơn này"}
-        >
-          {toggling ? (
-            <span className="spinner" aria-hidden="true" />
-          ) : (
-            <svg
-              viewBox="0 0 20 20"
-              fill={isWatching ? "currentColor" : "none"}
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-            >
-              <path
-                d="M10 2C6.5 2 3.5 4.5 2.1 8c-.2.5-.2 1 0 1.5C3.5 13.5 6.5 16 10 16s6.5-2.5 7.9-6.5c.2-.5.2-1 0-1.5C16.5 4.5 13.5 2 10 2z"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              />
-              <circle
-                cx="10"
-                cy="9.5"
-                r="2.5"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              />
-            </svg>
-          )}
-          {isWatching ? "Đang theo dõi" : "Theo dõi"}
-        </button>
-      </div>
+  const timelineItems = checkpoints.map((cp, i) => {
+    const hasCurrentLoc =
+      cp.currentLocation?.name || cp.currentLocation?.address;
+    const hasNextLoc = cp.nextLocation?.name || cp.nextLocation?.address;
 
-      <div className="timeline">
-        {checkpoints.length === 0 ? (
-          <p className="empty-state">Chưa có thông tin hành trình.</p>
-        ) : (
-          checkpoints.map((cp, i) => (
-            <CheckpointItem key={i} cp={cp} isLatest={i === 0} />
-          ))
-        )}
-      </div>
-    </div>
+    return {
+      color: i === 0 ? "purple" : "gray",
+      children: (
+        <div>
+          <Space
+            style={{ width: "100%", justifyContent: "space-between" }}
+            align="start"
+          >
+            <Text strong={i === 0}>{cp.description}</Text>
+            <Text
+              type="secondary"
+              style={{ fontSize: 12, whiteSpace: "nowrap", flexShrink: 0 }}
+            >
+              {formatTime(cp.time)}
+            </Text>
+          </Space>
+          {cp.milestoneName && (
+            <div style={{ marginTop: 4 }}>
+              <Tag color={tagStatus}>{cp.milestoneName}</Tag>
+            </div>
+          )}
+          {(hasCurrentLoc || hasNextLoc) && (
+            <div
+              style={{
+                marginTop: 8,
+                display: "flex",
+                flexDirection: "column",
+                gap: 8,
+                background: "#000",
+                border: "1px solid rgb(85, 85, 85)",
+                borderRadius: 6,
+                padding: "8px 10px",
+              }}
+            >
+              {hasCurrentLoc && (
+                <LocationBlock
+                  label="Vị trí hiện tại"
+                  loc={cp.currentLocation}
+                />
+              )}
+              {hasNextLoc && (
+                <LocationBlock label="Điểm tiếp theo" loc={cp.nextLocation} />
+              )}
+            </div>
+          )}
+        </div>
+      ),
+    };
+  });
+
+  return (
+    <Card
+      size="small"
+      title={
+        <Space vertical style={{ paddingBottom: "10px", paddingTop: "10px" }}>
+          <Space>
+            <Text
+              style={{
+                fontSize: 12,
+                opacity: 0.5,
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+              }}
+            >
+              Mã vận đơn
+            </Text>
+            <Text strong style={{ letterSpacing: "0.5px" }}>
+              {trackingNumber}
+            </Text>
+          </Space>
+          <Tag color={tagStatus}>{status}</Tag>
+        </Space>
+      }
+      extra={
+        <Space>
+          <Tooltip title={isWatching ? "Dừng theo dõi" : "Theo dõi đơn này"}>
+            <Button
+              type={isWatching ? "primary" : "default"}
+              size="small"
+              loading={toggling}
+              icon={isWatching ? <EyeOutlined /> : <EyeInvisibleOutlined />}
+              onClick={handleToggleWatch}
+            >
+              {isWatching ? "Đang theo dõi" : "Theo dõi"}
+            </Button>
+          </Tooltip>
+        </Space>
+      }
+    >
+      {checkpoints.length === 0 ? (
+        <Text type="secondary">Chưa có thông tin hành trình.</Text>
+      ) : (
+        <Timeline items={timelineItems} style={{ marginTop: 8 }} />
+      )}
+    </Card>
   );
 }

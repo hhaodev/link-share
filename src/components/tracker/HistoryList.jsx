@@ -1,7 +1,11 @@
 import { useState } from "react";
+import { List, Button, Typography, Tooltip } from "antd";
+import { SearchOutlined, DeleteOutlined } from "@ant-design/icons";
 import { deleteDoc, doc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { timeAgo } from "../../utils/helpers";
+
+const { Text } = Typography;
 
 function HistoryItem({ item, userId, onSearch, onDelete }) {
   const [deleting, setDeleting] = useState(false);
@@ -12,8 +16,7 @@ function HistoryItem({ item, userId, onSearch, onDelete }) {
     try {
       await deleteDoc(doc(db, "users", userId, "history", item.trackingNumber));
       onDelete(item.trackingNumber);
-    } catch (err) {
-      console.error("Failed to delete history:", err);
+    } catch {
       setDeleting(false);
     }
   }
@@ -28,77 +31,48 @@ function HistoryItem({ item, userId, onSearch, onDelete }) {
   }
 
   return (
-    <div className={`watch-item${deleting ? " link-item--deleting" : ""}`}>
-      <div className="watch-item-info">
-        <span className="watch-tn">{item.trackingNumber}</span>
-        <span className="watch-status">{item.lastStatus || "—"}</span>
+    <List.Item
+      actions={[
+        <Tooltip title="Tra cứu lại" key="search">
+          <Button
+            type="text"
+            size="small"
+            icon={<SearchOutlined />}
+            loading={searching}
+            onClick={handleSearch}
+          />
+        </Tooltip>,
+        <Tooltip title="Xóa khỏi lịch sử" key="delete">
+          <Button
+            type="text"
+            size="small"
+            danger
+            icon={<DeleteOutlined />}
+            loading={deleting}
+            onClick={handleDelete}
+          />
+        </Tooltip>,
+      ]}
+    >
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+          minWidth: 0,
+        }}
+      >
+        <Text strong className="watch-tn">
+          {item.trackingNumber}
+        </Text>
+        <Text className="watch-status">{item.lastStatus || "—"}</Text>
         {item.searchedAt && (
-          <span className="watch-time">
+          <Text type="secondary" className="watch-time">
             {timeAgo(item.searchedAt?.toDate?.() ?? item.searchedAt)}
-          </span>
+          </Text>
         )}
       </div>
-      <div className="watch-item-actions">
-        <button
-          className="btn-icon"
-          onClick={handleSearch}
-          disabled={searching}
-          title="Tra cứu lại"
-          aria-label="Tra cứu lại"
-        >
-          {searching ? (
-            <span className="spinner" aria-hidden="true" />
-          ) : (
-            <svg
-              viewBox="0 0 16 16"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-            >
-              <circle
-                cx="7"
-                cy="7"
-                r="4.5"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              />
-              <path
-                d="M11 11l2.5 2.5"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-            </svg>
-          )}
-        </button>
-        <button
-          className="btn-icon btn-danger"
-          onClick={handleDelete}
-          disabled={deleting}
-          title="Xóa khỏi lịch sử"
-          aria-label="Xóa khỏi lịch sử"
-        >
-          {deleting ? (
-            <span className="spinner" aria-hidden="true" />
-          ) : (
-            <svg
-              viewBox="0 0 16 16"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-            >
-              <path
-                d="M3 4h10M6 4V3h4v1M5 4v8h6V4H5z"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          )}
-        </button>
-      </div>
-    </div>
+    </List.Item>
   );
 }
 
@@ -106,19 +80,19 @@ export default function HistoryList({ items, userId, onSearch, onDelete }) {
   if (items.length === 0) return null;
 
   return (
-    <div className="watchlist">
-      <h3 className="watchlist-title">Lịch sử tra cứu ({items.length})</h3>
-      <div className="watchlist-items">
-        {items.map((item) => (
-          <HistoryItem
-            key={item.trackingNumber}
-            item={item}
-            userId={userId}
-            onSearch={onSearch}
-            onDelete={onDelete}
-          />
-        ))}
-      </div>
-    </div>
+    <List
+      size="small"
+      bordered
+      dataSource={items}
+      renderItem={(item) => (
+        <HistoryItem
+          key={item.trackingNumber}
+          item={item}
+          userId={userId}
+          onSearch={onSearch}
+          onDelete={onDelete}
+        />
+      )}
+    />
   );
 }

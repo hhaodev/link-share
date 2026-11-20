@@ -1,10 +1,24 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App.jsx'
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { ConfigProvider, theme } from "antd";
+import viVN from "antd/locale/vi_VN";
+import "./index.css";
+import App from "./App.jsx";
 
-createRoot(document.getElementById('root')).render(
+createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <App />
+    <ConfigProvider
+      locale={viVN}
+      theme={{
+        algorithm: theme.darkAlgorithm,
+        token: {
+          colorPrimary: "#aa3bff",
+          borderRadius: 8,
+          fontFamily: "system-ui, 'Segoe UI', Roboto, sans-serif",
+        },
+      }}
+    >
+      <App />
+    </ConfigProvider>
   </StrictMode>,
-)
+);
