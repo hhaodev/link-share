@@ -42,6 +42,7 @@ const { Text } = Typography;
 export default function PackageTracker() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [profileError, setProfileError] = useState("");
   const [listTab, setListTab] = useState("watch");
 
   const [searchLoading, setSearchLoading] = useState(false);
@@ -65,6 +66,24 @@ export default function PackageTracker() {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setAuthLoading(false);
+      setProfileError("");
+      if (u) {
+        setDoc(
+          doc(db, "users", u.uid),
+          {
+            uid: u.uid,
+            displayName: u.displayName || "",
+            email: u.email || "",
+            photoURL: u.photoURL || "",
+            lastLoginAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          },
+          { merge: true },
+        ).catch((error) => {
+          console.error("Failed to save user profile:", error);
+          setProfileError("Không thể lưu hồ sơ người dùng vào Firestore.");
+        });
+      }
     });
     return unsub;
   }, []);
@@ -255,6 +274,7 @@ export default function PackageTracker() {
         </Space>
 
         {/* Search */}
+        {profileError && <Alert message={profileError} type="error" showIcon />}
         <TrackingForm onSearch={handleSearch} loading={searchLoading} />
         {searchError && <Alert message={searchError} type="error" showIcon />}
 
