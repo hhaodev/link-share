@@ -18,12 +18,11 @@ export function getStatusEventId(trackingNumber, status) {
 }
 
 export async function sendPendingNotifications() {
-  const events = await db
-    .collectionGroup("notificationQueue")
-    .where("state", "==", "pending")
-    .get();
+  const events = await db.collectionGroup("notificationQueue").get();
 
   for (const event of events.docs) {
+    if (event.data().state !== "pending") continue;
+
     try {
       await sendNotificationEvent(event);
     } catch (error) {
