@@ -2,6 +2,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { db } from "./firebase-admin.js";
 import { getSPXTracking } from "./spx-api.js";
 import {
+  cleanupCompletedNotificationEvents,
   getStatusEventId,
   sendPendingNotifications,
   sendTestNotifications,
@@ -20,6 +21,15 @@ function normalizeTimestamp(value) {
   if (value?.toDate) return value.toDate().toISOString();
   if (value instanceof Date) return value.toISOString();
   return value == null ? "" : String(value);
+}
+
+function isCompletedStatus(status) {
+  const value = `${status.status} ${status.statusCode}`.toLowerCase();
+  return (
+    value.includes("giao hàng thành công") ||
+    value.includes("giao thành công") ||
+    /\bdelivered\b/.test(value)
+  );
 }
 
 async function updateTrackingStatus(watchRef, userRef, trackingNumber, latest) {
@@ -41,15 +51,39 @@ async function updateTrackingStatus(watchRef, userRef, trackingNumber, latest) {
       statusCodeChanged ||
       normalizeTimestamp(current.lastCheckpointTime ?? current.lastStatusAt) !==
         normalizeTimestamp(latest.timestamp);
+    const completed = isCompletedStatus(latest);
+    const shouldNotify = changed && hadPreviousStatus;
     const needsBaseline =
       !current.lastStatusCode ||
       current.lastCheckpointTime === undefined ||
       current.lastStatusAt === undefined;
 
-    if (!changed && !needsBaseline) return "unchanged";
+    if (!completed && !changed && !needsBaseline) return "unchanged";
 
     const statusSnapshot =
-      changed && hadPreviousStatus ? await transaction.get(statusRef) : null;
+      shouldNotify || completed ? await transaction.get(statusRef) : null;
+
+    if (completed) {
+      if (statusSnapshot.exists) {
+        transaction.update(statusRef, {
+          completed: true,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      } else {
+        transaction.create(statusRef, {
+          trackingNumber,
+          nickname: current.nickname || "",
+          status: latest.status,
+          statusCode: latest.statusCode,
+          timestamp: latest.timestamp,
+          state: shouldNotify ? "pending" : "completed",
+          completed: true,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      }
+      transaction.delete(watchRef);
+      return "completed";
+    }
 
     transaction.update(watchRef, {
       lastStatus: latest.status,
@@ -59,7 +93,7 @@ async function updateTrackingStatus(watchRef, userRef, trackingNumber, latest) {
       updatedAt: FieldValue.serverTimestamp(),
     });
 
-    if (changed && hadPreviousStatus && !statusSnapshot.exists) {
+    if (shouldNotify && !statusSnapshot.exists) {
       transaction.create(statusRef, {
         trackingNumber,
         nickname: current.nickname || "",
@@ -91,6 +125,7 @@ async function pollSPX() {
 
   const summary = {
     changed: 0,
+    completed: 0,
     initialized: 0,
     unchanged: 0,
     removed: 0,
@@ -142,6 +177,7 @@ async function pollSPX() {
   }
 
   await sendPendingNotifications();
+  await cleanupCompletedNotificationEvents();
   console.log("========== SPX POLLING SUMMARY ==========");
   console.log(JSON.stringify({ total: snapshot.size, ...summary }, null, 2));
   if (summary.errors > 0) process.exitCode = 1;

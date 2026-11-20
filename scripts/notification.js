@@ -31,6 +31,44 @@ export async function sendPendingNotifications() {
   }
 }
 
+export async function cleanupCompletedNotificationEvents() {
+  const events = await db.collectionGroup("notificationQueue").get();
+  let deletedCount = 0;
+
+  for (const completedEvent of events.docs) {
+    if (completedEvent.data().completed !== true) continue;
+
+    const userRef = completedEvent.ref.parent.parent;
+    const trackingNumber = completedEvent.data().trackingNumber;
+    if (!userRef || !trackingNumber) {
+      console.error(
+        `Cannot clean completed notification event: ${completedEvent.ref.path}`,
+      );
+      continue;
+    }
+
+    const trackingEvents = await userRef
+      .collection("notificationQueue")
+      .where("trackingNumber", "==", trackingNumber)
+      .get();
+    if (trackingEvents.docs.some((event) => event.data().state === "pending")) {
+      continue;
+    }
+
+    for (let offset = 0; offset < trackingEvents.docs.length; offset += 500) {
+      const batch = db.batch();
+      trackingEvents.docs
+        .slice(offset, offset + 500)
+        .forEach((event) => batch.delete(event.ref));
+      await batch.commit();
+      deletedCount += Math.min(500, trackingEvents.docs.length - offset);
+    }
+  }
+
+  console.log(`Completed notification events deleted: ${deletedCount}`);
+  return deletedCount;
+}
+
 export async function sendTestNotifications() {
   const tokenSnapshot = await db.collectionGroup("fcmTokens").get();
   const tokens = [
