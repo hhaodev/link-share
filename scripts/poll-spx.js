@@ -1,14 +1,18 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { db } from "./firebase-admin.js";
 import { getSPXTracking } from "./spx-api.js";
-import { getStatusEventId, sendPendingNotifications } from "./notification.js";
+import {
+  getStatusEventId,
+  sendPendingNotifications,
+  sendTestNotifications,
+} from "./notification.js";
 
 function hasPreviousStatus(data) {
   return Boolean(
     data.lastStatus ||
-      data.lastStatusCode ||
-      data.lastCheckpointTime ||
-      data.lastStatusAt,
+    data.lastStatusCode ||
+    data.lastCheckpointTime ||
+    data.lastStatusAt,
   );
 }
 
@@ -35,9 +39,8 @@ async function updateTrackingStatus(watchRef, userRef, trackingNumber, latest) {
     const changed =
       current.lastStatus !== latest.status ||
       statusCodeChanged ||
-      normalizeTimestamp(
-        current.lastCheckpointTime ?? current.lastStatusAt,
-      ) !== normalizeTimestamp(latest.timestamp);
+      normalizeTimestamp(current.lastCheckpointTime ?? current.lastStatusAt) !==
+        normalizeTimestamp(latest.timestamp);
     const needsBaseline =
       !current.lastStatusCode ||
       current.lastCheckpointTime === undefined ||
@@ -46,9 +49,7 @@ async function updateTrackingStatus(watchRef, userRef, trackingNumber, latest) {
     if (!changed && !needsBaseline) return "unchanged";
 
     const statusSnapshot =
-      changed && hadPreviousStatus
-        ? await transaction.get(statusRef)
-        : null;
+      changed && hadPreviousStatus ? await transaction.get(statusRef) : null;
 
     transaction.update(watchRef, {
       lastStatus: latest.status,
@@ -76,6 +77,15 @@ async function updateTrackingStatus(watchRef, userRef, trackingNumber, latest) {
 
 async function pollSPX() {
   console.log("========== SPX POLLING START ==========");
+
+  if (process.env.TEST_NOTIFICATION === "true") {
+    const summary = await sendTestNotifications();
+    console.log("========== SPX TEST NOTIFICATION SUMMARY ==========");
+    console.log(JSON.stringify(summary, null, 2));
+    if (summary.errors > 0 || summary.success === 0) process.exitCode = 1;
+    return;
+  }
+
   const snapshot = await db.collectionGroup("watchlist").get();
   console.log(`Packages to check: ${snapshot.size}`);
 

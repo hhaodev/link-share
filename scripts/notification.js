@@ -31,6 +31,64 @@ export async function sendPendingNotifications() {
   }
 }
 
+export async function sendTestNotifications() {
+  const tokenSnapshot = await db.collectionGroup("fcmTokens").get();
+  const tokens = [
+    ...new Set(
+      tokenSnapshot.docs
+        .map((tokenDoc) => tokenDoc.data().token || tokenDoc.id)
+        .filter(Boolean),
+    ),
+  ];
+
+  if (tokens.length === 0) {
+    console.error("No registered FCM tokens; no test notifications sent.");
+    return { devices: 0, success: 0, failure: 0, errors: 0 };
+  }
+
+  let success = 0;
+  let failure = 0;
+  let errors = 0;
+
+  for (let offset = 0; offset < tokens.length; offset += 500) {
+    const batchTokens = tokens.slice(offset, offset + 500);
+    try {
+      const response = await messaging.sendEachForMulticast({
+        tokens: batchTokens,
+        notification: {
+          title: "Space Tool - Thông báo thử",
+          body: "Thông báo push hoạt động bình thường.",
+        },
+        data: {
+          type: "TEST_NOTIFICATION",
+        },
+      });
+      success += response.successCount;
+      failure += response.failureCount;
+      errors += response.failureCount;
+
+      response.responses.forEach((result, index) => {
+        if (!result.success) {
+          console.error(
+            `Test notification failed for token ${index + 1} in batch:`,
+            result.error?.code || result.error?.message,
+          );
+        }
+      });
+    } catch (error) {
+      errors += batchTokens.length;
+      console.error("Test FCM batch failed:", error);
+    }
+  }
+
+  return {
+    devices: tokens.length,
+    success,
+    failure,
+    errors,
+  };
+}
+
 async function sendNotificationEvent(event) {
   const eventData = event.data();
   const userRef = event.ref.parent.parent;
@@ -51,7 +109,9 @@ async function sendNotificationEvent(event) {
         state: "no_tokens",
         updatedAt: FieldValue.serverTimestamp(),
       });
-      console.log(`No FCM tokens for user ${userRef.id}; event ${event.id} skipped`);
+      console.log(
+        `No FCM tokens for user ${userRef.id}; event ${event.id} skipped`,
+      );
       return;
     }
 
