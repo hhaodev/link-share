@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Button, message, Space, Tooltip, Typography } from "antd";
-import { CopyOutlined, CheckOutlined, DeleteOutlined } from "@ant-design/icons";
+import { Button, message, Space, Typography } from "antd";
+import { CopyOutlined, DeleteOutlined } from "@ant-design/icons";
 import { deleteDoc, doc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { timeAgo, getDomain } from "../../utils/helpers";
@@ -22,9 +22,8 @@ export default function LinkItem({ link, boxId }) {
   async function handleCopy() {
     if (copied) return;
     try {
-      await navigator.clipboard.writeText(link.url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      await navigator?.clipboard?.writeText(link.url);
+      message.success("Đã sao chép link");
     } catch (error) {
       console.error("Failed to copy link:", error);
       message.error("Không thể sao chép link");
@@ -60,7 +59,7 @@ export default function LinkItem({ link, boxId }) {
           target="_blank"
           rel="noopener noreferrer"
           className="link-url"
-          title={link.url}
+          onClick={(e) => e.stopPropagation()}
         >
           {link.url}
         </a>
@@ -74,31 +73,22 @@ export default function LinkItem({ link, boxId }) {
       </Typography.Text>
 
       <Space size={2}>
-        <Tooltip title={copied ? "Đã copy!" : "Copy link"}>
-          <Button
-            type="text"
-            size="small"
-            icon={
-              copied ? (
-                <CheckOutlined style={{ color: "#52c41a" }} />
-              ) : (
-                <CopyOutlined />
-              )
-            }
-            disabled={copied}
-            onClick={handleCopy}
-          />
-        </Tooltip>
-        <Tooltip title="Xóa">
-          <Button
-            type="text"
-            size="small"
-            danger
-            icon={<DeleteOutlined />}
-            loading={deleting}
-            onClick={handleDelete}
-          />
-        </Tooltip>
+        <Button
+          type="text"
+          size="small"
+          icon={<CopyOutlined />}
+          onClick={handleCopy}
+          aria-label="Sao chép link"
+        />
+        <Button
+          type="text"
+          size="small"
+          danger
+          icon={<DeleteOutlined />}
+          loading={deleting}
+          onClick={handleDelete}
+          aria-label="Xóa"
+        />
       </Space>
     </div>
   );

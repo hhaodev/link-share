@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, message, Tooltip } from "antd";
+import { Button, message } from "antd";
 import { BellFilled, BellOutlined } from "@ant-design/icons";
 import {
   disableNotification,
@@ -28,7 +28,7 @@ export default function NotificationSettings({ enabled, onChange }) {
       } else {
         await enableNotification(user.uid);
         onChange(true);
-        message.success("Đã bật thông báo thành công");
+        message.success("Đã bật thông báo");
       }
     } catch (error) {
       message.error(error.message);
@@ -38,15 +38,13 @@ export default function NotificationSettings({ enabled, onChange }) {
   };
 
   return (
-    <Tooltip title={enabled ? "Tắt thông báo" : "Bật thông báo"}>
-      <Button
-        size="small"
-        type={enabled ? "primary" : "default"}
-        icon={enabled ? <BellFilled /> : <BellOutlined />}
-        loading={loading}
-        aria-label={enabled ? "Tắt thông báo" : "Bật thông báo"}
-        onClick={handleToggle}
-      />
-    </Tooltip>
+    <Button
+      size="small"
+      type={enabled ? "primary" : "default"}
+      icon={enabled ? <BellFilled /> : <BellOutlined />}
+      loading={loading}
+      aria-label={enabled ? "Tắt thông báo" : "Bật thông báo"}
+      onClick={handleToggle}
+    />
   );
 }

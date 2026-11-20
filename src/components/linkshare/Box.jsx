@@ -1,4 +1,10 @@
-import { DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
+import {
+  CheckOutlined,
+  CloseOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  PlusOutlined,
+} from "@ant-design/icons";
 import {
   Badge,
   Button,
@@ -100,18 +106,40 @@ export default function Box({ box, onDelete, isDeleting }) {
     setIsEditingName(false);
   }
 
+  function handleCancelRename() {
+    setNameValue(box.name);
+    setIsEditingName(false);
+  }
+
   const titleNode = isEditingName ? (
-    <Input
-      ref={nameInputRef}
-      value={nameValue}
-      size="small"
-      style={{ maxWidth: 200, fontWeight: 600 }}
-      onChange={(e) => setNameValue(e.target.value)}
-      onBlur={handleRename}
-      onPressEnter={handleRename}
-      disabled={isRenamingName}
-      maxLength={50}
-    />
+    <>
+      <Input
+        ref={nameInputRef}
+        value={nameValue}
+        size="small"
+        style={{ maxWidth: 180, fontWeight: 600 }}
+        onChange={(e) => setNameValue(e.target.value)}
+        onPressEnter={handleRename}
+        disabled={isRenamingName}
+        maxLength={50}
+      />
+      <Button
+        type="text"
+        size="small"
+        icon={<CheckOutlined />}
+        loading={isRenamingName}
+        aria-label="Lưu tên gợi nhớ"
+        onClick={handleRename}
+      />
+      <Button
+        type="text"
+        size="small"
+        icon={<CloseOutlined />}
+        disabled={isRenamingName}
+        aria-label="Hủy đổi tên"
+        onClick={handleCancelRename}
+      />
+    </>
   ) : (
     <Space size={4}>
       <Typography.Text strong style={{ fontSize: 14 }}>

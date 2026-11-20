@@ -77,10 +77,25 @@ export default function AppHeader({ activeTab, onTabChange }) {
           value={activeTab}
           onChange={onTabChange}
           options={[
-            { value: "links", icon: <LinkOutlined /> },
+            {
+              value: "links",
+              icon: (
+                <LinkOutlined
+                  style={{
+                    color: activeTab === "links" ? "#aa3bff" : undefined,
+                  }}
+                />
+              ),
+            },
             {
               value: "tracker",
-              icon: <InboxOutlined />,
+              icon: (
+                <InboxOutlined
+                  style={{
+                    color: activeTab === "tracker" ? "#aa3bff" : undefined,
+                  }}
+                />
+              ),
             },
           ]}
         />

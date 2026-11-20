@@ -6,16 +6,7 @@ import {
   EditOutlined,
   EyeOutlined,
 } from "@ant-design/icons";
-import {
-  Button,
-  Empty,
-  Input,
-  List,
-  message,
-  Space,
-  Tooltip,
-  Typography,
-} from "antd";
+import { Button, Empty, Input, List, message, Space, Typography } from "antd";
 import useTrackingListActions from "../../hooks/useTrackingListActions";
 import useTrackingNickname from "../../hooks/useTrackingNickname";
 import { timeAgo } from "../../utils/helpers";
@@ -37,7 +28,7 @@ function WatchItem({ item, onSearch, onRemove }) {
 
   async function handleCopyTrackingNumber() {
     try {
-      await navigator.clipboard.writeText(item.trackingNumber);
+      await navigator?.clipboard?.writeText(item.trackingNumber);
       message.success("Đã sao chép mã vận đơn");
     } catch (error) {
       console.error("Failed to copy tracking number:", error);
@@ -49,25 +40,14 @@ function WatchItem({ item, onSearch, onRemove }) {
     <List.Item
       extra={
         <Space vertical>
-          <Tooltip title="Tra cứu ngay" key="refresh">
-            <Button
-              type="text"
-              size="small"
-              icon={<EyeOutlined />}
-              loading={searching}
-              onClick={handleSearch}
-            />
-          </Tooltip>
-          <Tooltip title="Dừng theo dõi" key="remove">
-            <Button
-              type="text"
-              size="small"
-              danger
-              icon={<DeleteOutlined />}
-              loading={deleting}
-              onClick={handleDelete}
-            />
-          </Tooltip>
+          <Button
+            type="text"
+            danger
+            icon={<DeleteOutlined />}
+            loading={deleting}
+            onClick={handleDelete}
+            aria-label="Dừng theo dõi"
+          />
         </Space>
       }
     >
@@ -95,6 +75,7 @@ function WatchItem({ item, onSearch, onRemove }) {
                 if (event.key === "Escape") nicknameEditor.cancelEditing();
               }}
               disabled={nicknameEditor.saving}
+              style={{ width: 180, fontWeight: 600 }}
             />
             <Button
               type="text"
@@ -115,26 +96,14 @@ function WatchItem({ item, onSearch, onRemove }) {
           </div>
         ) : (
           item.nickname && (
-            <Text strong ellipsis={{ tooltip: item.nickname }}>
-              {item.nickname}
-            </Text>
-          )
-        )}
-        <Space size={2}>
-          <Text type="secondary" className="watch-tn">
-            {item.trackingNumber}
-          </Text>
-          <Tooltip title="Sao chép mã vận đơn">
-            <Button
-              type="text"
-              size="small"
-              icon={<CopyOutlined />}
-              onClick={handleCopyTrackingNumber}
-              aria-label="Sao chép mã vận đơn"
-            />
-          </Tooltip>
-          {!nicknameEditor.editing && (
-            <Tooltip title="Đặt tên gợi nhớ">
+            <Space
+              size={2}
+              onClick={handleSearch}
+              style={{ cursor: "pointer" }}
+            >
+              <Text strong ellipsis>
+                {item.nickname}
+              </Text>
               <Button
                 type="text"
                 size="small"
@@ -142,7 +111,37 @@ function WatchItem({ item, onSearch, onRemove }) {
                 onClick={nicknameEditor.startEditing}
                 aria-label="Đặt tên gợi nhớ"
               />
-            </Tooltip>
+            </Space>
+          )
+        )}
+        <Space size={2}>
+          <Text type="secondary" className="watch-tn">
+            <Button
+              type="link"
+              size="small"
+              className="watch-tn"
+              loading={searching}
+              onClick={handleSearch}
+              style={{ padding: 0, height: "auto" }}
+            >
+              {item.trackingNumber}
+            </Button>
+          </Text>
+          <Button
+            type="text"
+            size="small"
+            icon={<CopyOutlined />}
+            onClick={handleCopyTrackingNumber}
+            aria-label="Sao chép mã vận đơn"
+          />
+          {!nicknameEditor.editing && !item.nickname && (
+            <Button
+              type="text"
+              size="small"
+              icon={<EditOutlined />}
+              onClick={nicknameEditor.startEditing}
+              aria-label="Đặt tên gợi nhớ"
+            />
           )}
         </Space>
         <Text className="watch-status">

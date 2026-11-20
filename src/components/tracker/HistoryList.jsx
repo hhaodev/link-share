@@ -1,10 +1,13 @@
-import { DeleteOutlined, EyeOutlined } from "@ant-design/icons";
-import { Button, List, Space, Tooltip, Typography } from "antd";
+import { Button, List, Space, Typography } from "antd";
+import { DeleteOutlined } from "@ant-design/icons";
 import useTrackingListActions from "../../hooks/useTrackingListActions";
 
 const { Text } = Typography;
 
-function HistoryItem({ item, onSearch, onDelete }) {
+function HistoryItem({ item, watchedItems, onSearch, onDelete }) {
+  const watchedItem = watchedItems.find(
+    (watched) => watched.trackingNumber === item.trackingNumber,
+  );
   const { deleting, searching, handleDelete, handleSearch } =
     useTrackingListActions({
       collectionName: "history",
@@ -17,46 +20,45 @@ function HistoryItem({ item, onSearch, onDelete }) {
     <List.Item
       extra={
         <Space vertical>
-          <Tooltip title="Tra cứu lại" key="search">
-            <Button
-              type="text"
-              size="small"
-              icon={<EyeOutlined />}
-              loading={searching}
-              onClick={handleSearch}
-            />
-          </Tooltip>
-          <Tooltip title="Xóa khỏi lịch sử" key="delete">
-            <Button
-              type="text"
-              size="small"
-              danger
-              icon={<DeleteOutlined />}
-              loading={deleting}
-              onClick={handleDelete}
-            />
-          </Tooltip>
+          <Button
+            type="text"
+            size="small"
+            danger
+            icon={<DeleteOutlined />}
+            loading={deleting}
+            onClick={handleDelete}
+            aria-label="Xóa khỏi lịch sử"
+          />
         </Space>
       }
     >
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: 2,
-          minWidth: 0,
-        }}
+      <Text
+        type="secondary"
+        className="watch-tn"
+        onClick={handleSearch}
+        style={{ cursor: "pointer" }}
       >
-        <Text strong className="watch-tn">
+        <Button
+          type="link"
+          size="small"
+          className="watch-tn"
+          loading={searching}
+          style={{ padding: 0, height: "auto" }}
+        >
           {item.trackingNumber}
-        </Text>
-        <Text className="watch-status">{item.lastStatus || "—"}</Text>
-      </div>
+        </Button>
+        {`${watchedItem?.nickname ? ` - ${watchedItem.nickname}` : ""}`}
+      </Text>
     </List.Item>
   );
 }
 
-export default function HistoryList({ items, onSearch, onDelete }) {
+export default function HistoryList({
+  items,
+  watchedItems = [],
+  onSearch,
+  onDelete,
+}) {
   if (items.length === 0) return null;
 
   return (
@@ -68,6 +70,7 @@ export default function HistoryList({ items, onSearch, onDelete }) {
         <HistoryItem
           key={item.trackingNumber}
           item={item}
+          watchedItems={watchedItems}
           onSearch={onSearch}
           onDelete={onDelete}
         />

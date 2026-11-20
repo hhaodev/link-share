@@ -33,11 +33,13 @@ import { fetchTracking } from "../../utils/spxApi";
 import NotificationSettings from "../notificationSetting";
 import LoginScreen from "./LoginScreen";
 import TrackingForm from "./TrackingForm";
-import TrackingResult from "./TrackingResult";
 import WatchList from "./WatchList";
 import HistoryList from "./HistoryList";
+import TrackingDetail from "./TrackingDetail";
 
 const { Text } = Typography;
+
+const VITE_INTERVAL_REFRESH_DETAIL = 5 * 1000; // 60 seconds
 
 export default function PackageTracker() {
   const [user, setUser] = useState(null);
@@ -48,9 +50,9 @@ export default function PackageTracker() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState("");
   const [result, setResult] = useState({ checkpoints: [] });
-  const [openTrackingPanel, setOpenTrackingPanel] = useState(false);
+  const [activeView, setActiveView] = useState("list");
 
-  const watchlist = useUserCollection(user?.uid, "watchlist", "addedAt");
+  const watchlist = useUserCollection(user?.uid, "watchlist", "updatedAt");
   const history = useUserCollection(user?.uid, "history", "searchedAt");
   const watchedItems = watchlist.items;
   const historyItems = history.items;
@@ -129,15 +131,24 @@ export default function PackageTracker() {
     }
   }
 
-  async function handleSearch(trackingNumber) {
+  async function handleSearch(trackingNumber, options = {}) {
+    const { updateUrl = true, saveHistory = true } = options;
+    const normalizedTrackingNumber = trackingNumber.trim().toUpperCase();
+
+    if (updateUrl) {
+      const url = new URL(window.location.href);
+      url.searchParams.set("tracking", normalizedTrackingNumber);
+      window.history.pushState({}, "", url);
+    }
+
+    setActiveView("detail");
     setSearchLoading(true);
     setSearchError("");
-    setResult({ checkpoints: [] });
+    setResult({ trackingNumber: normalizedTrackingNumber, checkpoints: [] });
     try {
-      const data = await fetchTracking(trackingNumber);
+      const data = await fetchTracking(normalizedTrackingNumber);
       setResult(data);
-      setOpenTrackingPanel(true);
-      if (user) {
+      if (user && saveHistory) {
         await setDoc(
           doc(db, "users", user.uid, "history", data.trackingNumber),
           {
@@ -156,6 +167,113 @@ export default function PackageTracker() {
     }
   }
 
+  useEffect(() => {
+    const syncTrackingFromUrl = () => {
+      const trackingNumber = new URLSearchParams(window.location.search).get(
+        "tracking",
+      );
+      if (trackingNumber) {
+        handleSearch(trackingNumber, {
+          updateUrl: false,
+          saveHistory: false,
+        });
+      } else {
+        setActiveView("list");
+      }
+    };
+
+    syncTrackingFromUrl();
+    window.addEventListener("popstate", syncTrackingFromUrl);
+    return () => window.removeEventListener("popstate", syncTrackingFromUrl);
+  }, []);
+
+  async function refreshOpenDetail(trackingNumber) {
+    try {
+      const data = await fetchTracking(trackingNumber);
+      setResult((current) =>
+        current.trackingNumber === data.trackingNumber ? data : current,
+      );
+      setSearchError("");
+    } catch (error) {
+      console.error("Failed to refresh tracking detail:", error);
+    }
+  }
+
+  async function refreshWatchlist() {
+    if (!user || watchedItems.length === 0) return;
+
+    await Promise.allSettled(
+      watchedItems.map(async (item) => {
+        const data = await fetchTracking(item.trackingNumber);
+        const latestCheckpoint = data.checkpoints?.[0] ?? null;
+        const latestCheckpointTime = latestCheckpoint?.time ?? "";
+        const latestStatus =
+          latestCheckpoint?.description || data.status || "Đang cập nhật";
+
+        const hasChanged =
+          item.lastCheckpointTime !== latestCheckpointTime ||
+          item.lastStatus !== latestStatus;
+
+        if (!hasChanged) return;
+
+        const updates = {
+          trackingNumber: data.trackingNumber,
+          lastCheckpointTime: latestCheckpointTime,
+          lastStatus: latestStatus,
+          updatedAt: serverTimestamp(),
+        };
+
+        const localUpdates = {
+          ...updates,
+          updatedAt: new Date(),
+        };
+
+        await setDoc(
+          doc(db, "users", user.uid, "watchlist", data.trackingNumber),
+          updates,
+          { merge: true },
+        );
+
+        watchlist.updateItems((items) =>
+          items
+            .map((watchedItem) =>
+              watchedItem.trackingNumber === data.trackingNumber
+                ? { ...watchedItem, ...localUpdates }
+                : watchedItem,
+            )
+            .sort((a, b) => {
+              const aTime =
+                a.updatedAt?.toMillis?.() ?? a.updatedAt?.getTime?.() ?? 0;
+              const bTime =
+                b.updatedAt?.toMillis?.() ?? b.updatedAt?.getTime?.() ?? 0;
+              return bTime - aTime;
+            }),
+        );
+      }),
+    );
+  }
+
+  useEffect(() => {
+    if (activeView !== "detail" || !result.trackingNumber) return undefined;
+
+    const intervalId = window.setInterval(() => {
+      refreshOpenDetail(result.trackingNumber);
+    }, VITE_INTERVAL_REFRESH_DETAIL);
+
+    return () => window.clearInterval(intervalId);
+  }, [activeView, result.trackingNumber]);
+
+  useEffect(() => {
+    if (!user) return undefined;
+
+    refreshWatchlist();
+    const intervalId = window.setInterval(
+      refreshWatchlist,
+      VITE_INTERVAL_REFRESH_DETAIL,
+    );
+    return () => window.clearInterval(intervalId);
+  }, [user?.uid, watchedItems.map((item) => item.trackingNumber).join(",")]);
+
   function handleWatchChange(trackingNumber, watching) {
     watchlist.updateItems((items) => {
       if (!watching) {
@@ -167,11 +285,13 @@ export default function PackageTracker() {
       return [...items, { trackingNumber }];
     });
   }
+
   function handleRemoveWatch(trackingNumber) {
     watchlist.updateItems((items) =>
       items.filter((item) => item.trackingNumber !== trackingNumber),
     );
   }
+
   function handleDeleteHistory(trackingNumber) {
     history.updateItems((items) =>
       items.filter((item) => item.trackingNumber !== trackingNumber),
@@ -226,6 +346,7 @@ export default function PackageTracker() {
       ) : (
         <HistoryList
           items={historyItems}
+          watchedItems={watchedItems}
           onSearch={handleSearch}
           onDelete={handleDeleteHistory}
         />
@@ -273,41 +394,55 @@ export default function PackageTracker() {
           </Button>
         </Space>
 
-        {/* Search */}
-        {profileError && <Alert message={profileError} type="error" showIcon />}
-        <TrackingForm onSearch={handleSearch} loading={searchLoading} />
-        {searchError && <Alert message={searchError} type="error" showIcon />}
+        {/* Search / list or detail page */}
+        {activeView === "detail" ? (
+          <TrackingDetail
+            key={result.trackingNumber || "empty"}
+            result={result}
+            watchedItems={watchedItems}
+            watchedMap={watchedMap}
+            onWatchChange={handleWatchChange}
+            onBack={() => {
+              const url = new URL(window.location.href);
+              url.searchParams.delete("tracking");
+              window.history.pushState({}, "", url);
+              setActiveView("list");
+            }}
+            loading={searchLoading}
+            error={searchError}
+          />
+        ) : (
+          <>
+            {profileError && (
+              <Alert message={profileError} type="error" showIcon />
+            )}
+            <TrackingForm onSearch={handleSearch} loading={searchLoading} />
+            {searchError && (
+              <Alert message={searchError} type="error" showIcon />
+            )}
 
-        {/* Watch / History tabs */}
-        {watchlist.error && (
-          <Alert
-            type="error"
-            showIcon
-            message="Không thể tải danh sách theo dõi."
-          />
+            {watchlist.error && (
+              <Alert
+                type="error"
+                showIcon
+                message="Không thể tải danh sách theo dõi."
+              />
+            )}
+            {history.error && (
+              <Alert
+                type="error"
+                showIcon
+                message="Không thể tải lịch sử tra cứu."
+              />
+            )}
+            <Tabs
+              activeKey={listTab}
+              onChange={setListTab}
+              items={tabItems}
+              size="small"
+            />
+          </>
         )}
-        {history.error && (
-          <Alert
-            type="error"
-            showIcon
-            message="Không thể tải lịch sử tra cứu."
-          />
-        )}
-        <Tabs
-          activeKey={listTab}
-          onChange={setListTab}
-          items={tabItems}
-          size="small"
-        />
-        <TrackingResult
-          key={result.trackingNumber || "empty"}
-          trackingPanelStatus={openTrackingPanel}
-          onClose={() => setOpenTrackingPanel(false)}
-          result={result}
-          watchedItems={watchedItems}
-          watchedMap={watchedMap}
-          onWatchChange={handleWatchChange}
-        />
       </Space>
     </UserContext.Provider>
   );

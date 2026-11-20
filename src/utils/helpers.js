@@ -75,25 +75,3 @@ export function getDomain(url) {
     return url;
   }
 }
-
-const STATUS_COLOR = {
-  delivered: "status--green",
-  success: "status--green",
-  failed: "status--red",
-  cancelled: "status--red",
-  pickup: "status--blue",
-  intransit: "status--blue",
-  default: "status--gray",
-};
-
-export function getStatusClass(description = "") {
-  const d = description.toLowerCase();
-  if (d.includes("giao thành công") || d.includes("delivered"))
-    return STATUS_COLOR.delivered;
-  if (d.includes("thất bại") || d.includes("hoàn")) return STATUS_COLOR.failed;
-  if (d.includes("đang giao") || d.includes("vận chuyển"))
-    return STATUS_COLOR.intransit;
-  if (d.includes("lấy hàng") || d.includes("pickup"))
-    return STATUS_COLOR.pickup;
-  return STATUS_COLOR.default;
-}
