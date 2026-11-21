@@ -1,16 +1,3 @@
-import { useState } from "react";
-import {
-  Button,
-  Card,
-  Input,
-  Space,
-  Tag,
-  Timeline,
-  Typography,
-  Alert,
-  Spin,
-  message,
-} from "antd";
 import {
   ArrowLeftOutlined,
   BellFilled,
@@ -19,14 +6,27 @@ import {
   CloseOutlined,
   CopyOutlined,
   EditOutlined,
-  EyeInvisibleOutlined,
-  EyeOutlined,
+  ShareAltOutlined,
 } from "@ant-design/icons";
+import {
+  Alert,
+  Button,
+  Card,
+  Input,
+  Space,
+  Spin,
+  Tag,
+  Timeline,
+  Typography,
+  message,
+} from "antd";
 import { deleteDoc, doc, serverTimestamp, setDoc } from "firebase/firestore";
-import { db } from "../../firebase";
+import { useState } from "react";
 import { useUser } from "../../contexts/UserContext";
+import { db } from "../../firebase";
 import useTrackingNickname from "../../hooks/useTrackingNickname";
-import { formatTime } from "../../utils/helpers";
+import { formatTime, timeAgo } from "../../utils/helpers";
+import spxLogo from "../../assets/spx-logo.png";
 
 const { Text, Link } = Typography;
 
@@ -60,6 +60,7 @@ export default function TrackingDetail({
   onBack,
   loading,
   error,
+  watchlist,
 }) {
   const user = useUser();
   const { trackingNumber, status } = result;
@@ -109,6 +110,31 @@ export default function TrackingDetail({
     } catch (error) {
       console.error("Failed to copy tracking number:", error);
       message.error("Không thể sao chép mã vận đơn");
+    }
+  }
+
+  async function handleShare() {
+    const shareUrl = new URL(window.location.href);
+    shareUrl.searchParams.set("tracking", trackingNumber);
+
+    const shareData = {
+      title: `Theo dõi đơn ${trackingNumber}`,
+      text: status ? `${trackingNumber} - ${status}` : trackingNumber,
+      url: shareUrl.toString(),
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        return;
+      }
+      await navigator.clipboard.writeText(shareUrl.toString());
+      message.success("Đã sao chép liên kết chia sẻ");
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        console.error("Failed to share tracking detail:", error);
+        message.error("Không thể chia sẻ thông tin đơn hàng");
+      }
     }
   }
 
@@ -172,113 +198,147 @@ export default function TrackingDetail({
         </Button>
         <Button
           type={isWatching ? "primary" : "default"}
-          loading={toggling}
+          loading={toggling || watchlist?.loading}
           icon={isWatching ? <BellFilled /> : <BellOutlined />}
           onClick={handleToggleWatch}
         >
           {isWatching ? "Bỏ theo dõi" : "Theo dõi đơn này"}
         </Button>
       </Space>
-      <Card
-        title={
-          <Space
-            vertical
-            size={6}
+      <Card>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 12,
+            width: "100%",
+          }}
+        >
+          <div
             style={{
-              paddingTop: 10,
-              paddingBottom: 10,
+              height: 50,
+              width: 50,
+              flexShrink: 0,
+              borderRadius: 8,
+              overflow: "hidden",
             }}
           >
-            {nicknameEditor.editing ? (
-              <Space>
-                <Input
-                  autoFocus
-                  size="small"
-                  maxLength={60}
-                  placeholder="Tên gợi nhớ"
-                  value={nicknameEditor.nickname}
-                  onChange={(event) =>
-                    nicknameEditor.setNickname(event.target.value)
-                  }
-                  onPressEnter={nicknameEditor.saveNickname}
-                  disabled={nicknameEditor.saving}
-                  style={{ width: 180, fontWeight: 600 }}
-                />
+            <img
+              src={spxLogo}
+              alt="SPX Express"
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
+            />
+          </div>
+          <Space
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              width: "100%",
+            }}
+          >
+            <Space size={6} vertical>
+              <Space size={4} wrap>
+                <Text style={{ fontWeight: 700 }} className="watch-tn">
+                  {trackingNumber}
+                </Text>
                 <Button
                   type="text"
                   size="small"
-                  icon={<CheckOutlined />}
-                  loading={nicknameEditor.saving}
-                  onClick={nicknameEditor.saveNickname}
-                />
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<CloseOutlined />}
-                  disabled={nicknameEditor.saving}
-                  onClick={nicknameEditor.cancelEditing}
+                  icon={<CopyOutlined />}
+                  onClick={handleCopyTrackingNumber}
+                  aria-label="Sao chép mã vận đơn"
                 />
               </Space>
-            ) : (
-              <Space size={4} vertical>
-                {watchedItem?.nickname && (
-                  <Space size={2}>
-                    <Text strong>{watchedItem.nickname}</Text>
-                    {isWatching && (
-                      <Button
-                        type="text"
-                        size="small"
-                        icon={<EditOutlined />}
-                        onClick={nicknameEditor.startEditing}
-                        aria-label="Đặt tên gợi nhớ"
-                      />
-                    )}
-                  </Space>
-                )}
-                <Space>
-                  <Text type="secondary" className="watch-tn">
-                    <Button
-                      type="link"
-                      size="small"
-                      className="watch-tn"
-                      style={{ padding: 0, height: "auto" }}
-                    >
-                      {trackingNumber}
-                    </Button>
+
+              {checkpoints[0]?.milestoneName && (
+                <Space size={2} wrap>
+                  <Tag style={{ marginInlineEnd: 0 }}>
+                    {checkpoints[0].milestoneName}
+                  </Tag>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {timeAgo(checkpoints[0].time)}
                   </Text>
-                  <Button
-                    type="text"
-                    size="small"
-                    icon={<CopyOutlined />}
-                    onClick={handleCopyTrackingNumber}
-                    aria-label="Sao chép mã vận đơn"
-                  />
-                  {!watchedItem?.nickname && isWatching && (
-                    <Button
-                      type="text"
-                      size="small"
-                      icon={<EditOutlined />}
-                      onClick={nicknameEditor.startEditing}
-                      aria-label="Đặt tên gợi nhớ"
-                    />
-                  )}
                 </Space>
-              </Space>
-            )}
-            {status && (
-              <Tag
-                style={{
-                  whiteSpace: "normal",
-                  wordBreak: "break-word",
-                  maxWidth: "100%",
-                  display: "inline-block",
-                }}
+              )}
+            </Space>
+            <Space>
+              <Button
+                icon={<ShareAltOutlined />}
+                onClick={handleShare}
+                aria-label="Chia sẻ thông tin vận đơn"
+              />
+            </Space>
+          </Space>
+        </div>
+      </Card>
+      {isWatching && (
+        <Card>
+          {nicknameEditor.editing ? (
+            <Space>
+              <Input
+                autoFocus
+                size="small"
+                maxLength={60}
+                placeholder="Tên gợi nhớ"
+                value={nicknameEditor.nickname}
+                onChange={(event) =>
+                  nicknameEditor.setNickname(event.target.value)
+                }
+                onPressEnter={nicknameEditor.saveNickname}
+                disabled={nicknameEditor.saving}
+                style={{ width: 220, fontWeight: 600 }}
+              />
+              <Button
+                type="text"
+                size="small"
+                icon={<CheckOutlined />}
+                loading={nicknameEditor.saving}
+                onClick={nicknameEditor.saveNickname}
+              />
+              <Button
+                type="text"
+                size="small"
+                icon={<CloseOutlined />}
+                disabled={nicknameEditor.saving}
+                onClick={nicknameEditor.cancelEditing}
+              />
+            </Space>
+          ) : (
+            <Space size={4}>
+              <Text
+                type={
+                  nicknameEditor.nickname || watchedItem?.nickname
+                    ? undefined
+                    : "secondary"
+                }
               >
-                {status}
-              </Tag>
-            )}
+                {nicknameEditor.nickname ||
+                  watchedItem?.nickname ||
+                  "Đặt tên gợi nhớ"}
+              </Text>
+              <Button
+                type="text"
+                size="small"
+                icon={<EditOutlined />}
+                onClick={nicknameEditor.startEditing}
+                aria-label="Sửa tên gợi nhớ"
+              />
+            </Space>
+          )}
+        </Card>
+      )}
+      <Card
+        title={
+          <Space>
+            <Text strong>Hành trình vận chuyển</Text>
           </Space>
         }
+        style={{ width: "100%" }}
       >
         {loading ? (
           <div style={{ padding: 24, textAlign: "center" }}>

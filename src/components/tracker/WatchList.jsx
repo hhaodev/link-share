@@ -96,12 +96,13 @@ function WatchItem({ item, onSearch, onRemove }) {
           </div>
         ) : (
           item.nickname && (
-            <Space
-              size={2}
-              onClick={handleSearch}
-              style={{ cursor: "pointer" }}
-            >
-              <Text strong ellipsis>
+            <Space size={2}>
+              <Text
+                strong
+                ellipsis
+                onClick={handleSearch}
+                style={{ cursor: "pointer" }}
+              >
                 {item.nickname}
               </Text>
               <Button
@@ -115,17 +116,8 @@ function WatchItem({ item, onSearch, onRemove }) {
           )
         )}
         <Space size={2}>
-          <Text type="secondary" className="watch-tn">
-            <Button
-              type="link"
-              size="small"
-              className="watch-tn"
-              loading={searching}
-              onClick={handleSearch}
-              style={{ padding: 0, height: "auto" }}
-            >
-              {item.trackingNumber}
-            </Button>
+          <Text className="watch-tn" onClick={handleSearch}>
+            {item.trackingNumber}
           </Text>
           <Button
             type="text"

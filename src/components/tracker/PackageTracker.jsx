@@ -11,7 +11,7 @@ import {
 } from "firebase/firestore";
 import {
   Avatar,
-  Button,
+  Dropdown,
   Space,
   Spin,
   Tabs,
@@ -360,7 +360,29 @@ export default function PackageTracker() {
         {/* User bar */}
         <Space style={{ width: "100%", justifyContent: "space-between" }}>
           <Space>
-            <Avatar src={user.photoURL} size={32} />
+            <Dropdown
+              trigger={["click"]}
+              placement="bottomLeft"
+              menu={{
+                items: [
+                  {
+                    key: "sign-out",
+                    icon: <LogoutOutlined />,
+                    label: "Đăng xuất",
+                    danger: true,
+                  },
+                ],
+                onClick: ({ key }) => {
+                  if (key === "sign-out") handleSignOut();
+                },
+              }}
+            >
+              <Avatar
+                src={user.photoURL}
+                size={32}
+                style={{ cursor: "pointer" }}
+              />
+            </Dropdown>
             <div>
               <Space size={8} wrap>
                 <Text strong>{user.displayName}</Text>
@@ -389,9 +411,6 @@ export default function PackageTracker() {
               </div>
             </div>
           </Space>
-          <Button icon={<LogoutOutlined />} onClick={handleSignOut}>
-            Đăng xuất
-          </Button>
         </Space>
 
         {/* Search / list or detail page */}
@@ -410,6 +429,7 @@ export default function PackageTracker() {
             }}
             loading={searchLoading}
             error={searchError}
+            watchlist={watchlist}
           />
         ) : (
           <>

@@ -24,6 +24,10 @@ body {
   padding: 0 !important;
 }
 
+.ant-card-body {
+  padding: 16px !important;
+}
+
 /* Chrome, Edge, Safari */
 ::-webkit-scrollbar {
   width: 5px;

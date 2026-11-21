@@ -32,21 +32,8 @@ function HistoryItem({ item, watchedItems, onSearch, onDelete }) {
         </Space>
       }
     >
-      <Text
-        type="secondary"
-        className="watch-tn"
-        onClick={handleSearch}
-        style={{ cursor: "pointer" }}
-      >
-        <Button
-          type="link"
-          size="small"
-          className="watch-tn"
-          loading={searching}
-          style={{ padding: 0, height: "auto" }}
-        >
-          {item.trackingNumber}
-        </Button>
+      <Text className="watch-tn" onClick={handleSearch}>
+        {item.trackingNumber}
         {`${watchedItem?.nickname ? ` - ${watchedItem.nickname}` : ""}`}
       </Text>
     </List.Item>
