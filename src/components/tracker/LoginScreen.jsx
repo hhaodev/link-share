@@ -64,8 +64,7 @@ export default function LoginScreen() {
             Package Tracker
           </Title>
           <Paragraph type="secondary" style={{ margin: 0 }}>
-            Theo dõi đơn SPX Express và nhận thông báo qua Gmail khi có cập nhật
-            mới.
+            Theo dõi đơn SPX Express và nhận thông báo khi có cập nhật mới.
           </Paragraph>
           {error && <Alert message={error} type="error" showIcon />}
           <Button
