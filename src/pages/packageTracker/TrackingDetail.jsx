@@ -19,10 +19,8 @@ export default function TrackingDetail({
   error,
   watchlist,
 }) {
-  console.log("🚀 ~ TrackingDetail ~ error:", error);
   const user = useUser();
   const { trackingNumber, status } = result;
-  console.log("🚀 ~ TrackingDetail ~ result:", result);
   const checkpoints = result.checkpoints ?? [];
   const isWatching = !!watchedMap[trackingNumber];
   const watchedItem = watchedItems.find(
@@ -73,8 +71,9 @@ export default function TrackingDetail({
         onBack={onBack}
         authLoading={authLoading}
         error={error}
+        searchLoading={loading}
       />
-      {isWatching && (
+      {isWatching && !loading && (
         <TrackingNickname
           trackingNumber={trackingNumber}
           nickname={watchedItem?.nickname}

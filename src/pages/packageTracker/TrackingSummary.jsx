@@ -24,6 +24,7 @@ export default function TrackingSummary({
   onBack,
   authLoading,
   error,
+  searchLoading,
 }) {
   async function handleCopyTrackingNumber() {
     try {
@@ -71,7 +72,7 @@ export default function TrackingSummary({
         <Button icon={<ArrowLeftOutlined />} onClick={onBack}>
           Quay lại
         </Button>
-        {!error && (
+        {!error && !searchLoading && (
           <>
             {authLoading || watchlist?.loading ? (
               <Button loading disabled>
@@ -95,7 +96,7 @@ export default function TrackingSummary({
         )}
       </Space>
 
-      {!error && (
+      {!error && !searchLoading && (
         <Card>
           <div
             style={{
