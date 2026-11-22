@@ -152,7 +152,11 @@ export default function Box({ box, onDelete, isDeleting }) {
         disabled={isDeleting}
         onClick={() => setIsEditingName(true)}
       />
-      <Badge count={links.length} color="purple" style={{ fontSize: 11 }} />
+      <Badge
+        count={links.length}
+        color="var(--app-accent)"
+        style={{ fontSize: 11 }}
+      />
     </Space>
   );
 

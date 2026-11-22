@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Button, message } from "antd";
-import { BellFilled, BellOutlined } from "@ant-design/icons";
+import { Switch, message } from "antd";
 import {
   disableNotification,
   enableNotification,
@@ -11,40 +10,42 @@ export default function NotificationSettings({ enabled, onChange }) {
   const user = useUser();
   const [loading, setLoading] = useState(false);
 
-  const handleToggle = async () => {
+  const handleToggle = async (checked) => {
     try {
       setLoading(true);
 
-      if (enabled) {
+      if (checked) {
+        await enableNotification(user.uid);
+        onChange(true);
+        message.success("Đã bật thông báo");
+      } else {
         const revoked = await disableNotification(user.uid);
         onChange(false);
+
         if (!revoked) {
           message.warning(
             "Đã ngừng gửi thông báo nhưng chưa thu hồi được token trên thiết bị",
           );
           return;
         }
+
         message.success("Đã tắt thông báo");
-      } else {
-        await enableNotification(user.uid);
-        onChange(true);
-        message.success("Đã bật thông báo");
       }
     } catch (error) {
-      message.error(error.message);
+      message.error(error.message || "Không thể thay đổi cài đặt thông báo");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Button
-      size="small"
-      type={enabled ? "primary" : "default"}
-      icon={enabled ? <BellFilled /> : <BellOutlined />}
+    <Switch
+      checked={enabled}
       loading={loading}
-      aria-label={enabled ? "Tắt thông báo" : "Bật thông báo"}
-      onClick={handleToggle}
+      checkedChildren="Bật"
+      unCheckedChildren="Tắt"
+      aria-label="Cài đặt thông báo"
+      onChange={handleToggle}
     />
   );
 }

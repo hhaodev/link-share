@@ -4,24 +4,47 @@
   box-sizing: border-box;
 }
 
+:root {
+  --app-bg: #090a11;
+  --app-surface-raised: #0c0f11;
+  --app-surface-panel: rgba(9, 10, 16, 0.72);
+  --app-surface-card: rgba(18, 19, 28, 0.82);
+  --app-surface-subtle: rgba(255, 255, 255, 0.018);
+  --app-surface-soft: rgba(255, 255, 255, 0.035);
+  --app-surface-hover: rgba(255, 255, 255, 0.06);
+  --app-surface-selected: #23202e;
+  --app-text-primary: #f4f3fa;
+  --app-text-secondary: #a4a2b1;
+  --app-text-muted: #777586;
+  --app-accent: #aa3bff;
+  --app-accent-foreground: #c394ff;
+  --app-accent-subtle: rgba(170, 59, 255, 0.1);
+  --app-border-subtle: rgba(255, 255, 255, 0.08);
+  --app-border-default: rgba(255, 255, 255, 0.12);
+  --app-border-accent: rgba(170, 59, 255, 0.28);
+  --app-border-accent-strong: rgba(170, 59, 255, 0.5);
+  --app-radius-control: 8px;
+  --app-radius-medium: 12px;
+  --app-radius-panel: 16px;
+  --app-scrollbar-thumb: rgba(255, 255, 255, 0.28);
+  --app-scrollbar-thumb-hover: rgba(255, 255, 255, 0.45);
+}
+
 body {
   margin: 0;
-  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  min-width: 320px;
+  color: var(--app-text-primary);
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
-  background-color: #000;
+  background-color: var(--app-bg);
 }
 
 #root {
   min-height: 100svh;
 }
 
-/* Ant Design token overrides */
 .ant-layout {
-  background: transparent !important;
-}
-
-.ant-layout-header {
-  padding: 0 !important;
+  background: transparent;
 }
 
 .ant-card-body {
@@ -39,15 +62,15 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #666;
+  background: var(--app-scrollbar-thumb);
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #888;
+  background: var(--app-scrollbar-thumb-hover);
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #666 transparent;
+  scrollbar-color: var(--app-scrollbar-thumb) transparent;
 }

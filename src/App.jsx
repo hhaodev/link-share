@@ -1,52 +1,53 @@
 import { Layout, Spin } from "antd";
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useEffect, useLayoutEffect } from "react";
 import "./App.css";
 import AppHeader from "./components/AppHeader";
+import { GlobalContext } from "./contexts/GlobalContext";
+import { useLocalState } from "./hooks/useLocalState";
+import { useQueryState } from "./hooks/useQueryState";
 
-const LinkShare = lazy(() => import("./components/linkshare"));
-const PackageTracker = lazy(
-  () => import("./components/tracker/PackageTracker"),
-);
+const LinkShare = lazy(() => import("./pages/linkShare"));
+const PackageTracker = lazy(() => import("./pages/packageTracker"));
 
 const { Content } = Layout;
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState(() => {
-    const trackingNumber = new URLSearchParams(window.location.search).get(
-      "tracking",
-    );
-    return trackingNumber
-      ? "tracker"
-      : (localStorage.getItem("activeTab") ?? "links");
-  });
+  const [activeTab, setActiveTab] = useLocalState("platform", "packageTracker");
+  const [trackingNumber, setTrackingNumber] = useQueryState("tracking", "");
 
-  function handleTabChange(tab) {
-    localStorage.setItem("activeTab", tab);
-    setActiveTab(tab);
-  }
+  useLayoutEffect(() => {
+    if (trackingNumber) setActiveTab("packageTracker");
+  }, [setActiveTab, trackingNumber]);
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case "linkSharing":
+        return <LinkShare />;
+      case "packageTracker":
+        return <PackageTracker />;
+      default:
+        return <PackageTracker />;
+    }
+  };
 
   return (
-    <Layout style={{ minHeight: "100svh" }}>
-      <AppHeader activeTab={activeTab} onTabChange={handleTabChange} />
-      <Content
-        style={{
-          maxWidth: 1100,
-          width: "100%",
-          margin: "0 auto",
-          padding: "12px 24px 36px",
-          backgroundColor: "#000",
-        }}
-      >
-        <Suspense
-          fallback={
-            <div style={{ padding: 24, textAlign: "center" }}>
-              <Spin />
-            </div>
-          }
-        >
-          {activeTab === "links" ? <LinkShare /> : <PackageTracker />}
-        </Suspense>
-      </Content>
-    </Layout>
+    <GlobalContext.Provider
+      value={{ activeTab, setActiveTab, setTrackingNumber }}
+    >
+      <Layout className="app-layout">
+        <AppHeader activeTab={activeTab} onTabChange={setActiveTab} />
+        <Content className="app-content">
+          <Suspense
+            fallback={
+              <div style={{ padding: 12, textAlign: "center" }}>
+                <Spin />
+              </div>
+            }
+          >
+            {renderContent()}
+          </Suspense>
+        </Content>
+      </Layout>
+    </GlobalContext.Provider>
   );
 }

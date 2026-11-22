@@ -36,6 +36,7 @@ export default function CreateBoxForm() {
         disabled={creating}
         maxLength={50}
         allowClear
+        size="large"
       />
       <Button
         type="primary"
@@ -43,6 +44,7 @@ export default function CreateBoxForm() {
         loading={creating}
         disabled={!name.trim()}
         onClick={handleSubmit}
+        size="large"
       >
         Tạo Box
       </Button>
