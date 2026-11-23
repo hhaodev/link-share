@@ -3,7 +3,7 @@
 ## SPX polling and push notifications
 
 Cloudflare Workers runs the SPX poller on the schedule in
-`worker/wrangler.toml` (currently every three minutes). It preserves the
+the repository-root `wrangler.toml` (currently every five minutes). It preserves the
 existing watchlist baseline, status-change detection, completed-shipment
 cleanup, Firestore notification queue, and per-device FCM retries. The worker
 uses Firebase REST APIs and does not require the Node.js Firebase Admin SDK.
@@ -15,7 +15,7 @@ Worker code is organized under `worker/`:
 - `worker/src/firestore.js`: Firestore REST reads and writes.
 - `worker/src/fcm.js`: FCM HTTP v1 delivery.
 - `worker/src/spx.js`: SPX polling and notification queue workflow.
-- `worker/wrangler.toml` and `worker/package.json`: Cloudflare configuration.
+- `wrangler.toml` and `worker/package.json`: Cloudflare configuration.
 
 ### Deploy the worker
 
@@ -55,9 +55,18 @@ are deleted on each poll; `pending` events are retained for retry. Worker logs
 include account display name and UID, tracking number, old/new status, and
 per-device FCM results, including test notifications; raw FCM tokens are never
 logged. Status changes are queued only when the account has an FCM token.
-Transitioning to completed still sends a notification when the status changed;
-a package first seen as completed does not. Use `npx wrangler tail` from
-`worker/` to follow the tracking and notification tables.
+transitioning to completed still sends a notification when the status changed;
+a package first seen as completed does not. Use `npx wrangler tail` to follow
+raw runtime logs.
+
+### View detailed run logs in Admin
+
+Open `/admin`, enter `POLL_SECRET`, then start SPX polling or a test
+notification. The page shows the detailed report returned by that run:
+tracking results per account/package, old and new status and timestamps,
+notification delivery per device, test-notification results, run events, and
+the summary. The report is returned directly to the page and is not saved;
+scheduled runs continue to be viewed with `npx wrangler tail`.
 
 An `accepted by FCM` result means the FCM API accepted the request; it does not
 confirm that the device displayed it. Foreground notifications are displayed by

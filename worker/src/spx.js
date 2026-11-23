@@ -45,6 +45,19 @@ function serializeError(error) {
   });
 }
 
+function addLogRow(rows, row) {
+  rows.push({ time: new Date().toISOString(), ...row });
+}
+
+function addRunEvent(report, level, message, details = {}) {
+  report.events.push({
+    time: new Date().toISOString(),
+    level,
+    message,
+    details,
+  });
+}
+
 async function getAccountInfo(env, accountId, accountCache) {
   if (!accountCache.has(accountId)) {
     accountCache.set(
@@ -372,7 +385,7 @@ async function sendNotificationEvent(
           ["updatedAt"],
         ),
       ]);
-      logRows.push({
+      addLogRow(logRows, {
         account: account.name,
         uid: account.uid,
         tracking: eventData.trackingNumber,
@@ -447,7 +460,7 @@ async function sendNotificationEvent(
         invalidTokenCount += 1;
         const tokenDocument = tokenDocumentByValue.get(result.token);
         if (tokenDocument) writes.push(deleteWrite(tokenDocument));
-        logRows.push({
+        addLogRow(logRows, {
           account: account.name,
           uid: account.uid,
           tracking: eventData.trackingNumber,
@@ -459,7 +472,7 @@ async function sendNotificationEvent(
         });
       } else if (result.success) {
         acceptedCount += 1;
-        logRows.push({
+        addLogRow(logRows, {
           account: account.name,
           uid: account.uid,
           tracking: eventData.trackingNumber,
@@ -471,7 +484,7 @@ async function sendNotificationEvent(
         });
       } else if (!result.success) {
         retryCount += 1;
-        logRows.push({
+        addLogRow(logRows, {
           account: account.name,
           uid: account.uid,
           tracking: eventData.trackingNumber,
@@ -503,7 +516,7 @@ async function sendNotificationEvent(
     };
   }
 
-  logRows.push({
+  addLogRow(logRows, {
     account: account.name,
     uid: account.uid,
     tracking: eventData.trackingNumber,
@@ -531,7 +544,7 @@ async function sendPendingNotifications(env, projectId, accountCache) {
       console.error(
         `[NOTIFICATION ERROR] account="${account.name}" uid=${account.uid} tracking=${event.data.trackingNumber || "unknown"} event=${documentId(event)} ${serializeError(error)}`,
       );
-      logRows.push({
+      addLogRow(logRows, {
         account: account.name,
         uid: account.uid,
         tracking: event.data.trackingNumber || "unknown",
@@ -555,7 +568,12 @@ async function sendPendingNotifications(env, projectId, accountCache) {
     ],
     logRows,
   );
-  return errors;
+  return {
+    errors,
+    scanned: events.length,
+    pending: pendingEvents.length,
+    rows: logRows,
+  };
 }
 
 async function cleanupExpiredNotificationEvents(env) {
@@ -638,7 +656,7 @@ async function sendTestNotifications(env, projectId, accountCache) {
 
       if (result.success) {
         success += 1;
-        logRows.push({
+        addLogRow(logRows, {
           account: accountNames,
           uid: accountIds,
           tracking: "-",
@@ -653,7 +671,7 @@ async function sendTestNotifications(env, projectId, accountCache) {
         console.error(
           `[TEST NOTIFICATION ERROR] accounts="${accountNames}" uids=${accountIds} devices=${deviceIds} ${JSON.stringify({ status: result.errorStatus || "FCM_ERROR", message: result.error })}`,
         );
-        logRows.push({
+        addLogRow(logRows, {
           account: accountNames,
           uid: accountIds,
           tracking: "-",
@@ -667,7 +685,7 @@ async function sendTestNotifications(env, projectId, accountCache) {
   }
 
   if (targets.length === 0) {
-    logRows.push({
+    addLogRow(logRows, {
       account: "-",
       uid: "-",
       tracking: "-",
@@ -690,7 +708,10 @@ async function sendTestNotifications(env, projectId, accountCache) {
     ],
     logRows,
   );
-  return { devices: targets.length, success, failure, errors };
+  return {
+    summary: { devices: targets.length, success, failure, errors },
+    rows: logRows,
+  };
 }
 
 async function runWithConcurrency(items, concurrency, callback) {
@@ -700,174 +721,237 @@ async function runWithConcurrency(items, concurrency, callback) {
 }
 
 export async function pollSPX(env, testNotification = false) {
-  const projectId = getFirebaseProjectId(env);
+  const report = {
+    runId: crypto.randomUUID(),
+    mode: testNotification ? "test-notification" : "spx-poll",
+    status: "running",
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+    summary: null,
+    events: [],
+    tables: {
+      tracking: [],
+      notifications: [],
+      testNotifications: [],
+    },
+  };
   const accountCache = new Map();
 
-  if (testNotification) {
-    const summary = await sendTestNotifications(env, projectId, accountCache);
-    logTable(
-      "TEST NOTIFICATION SUMMARY",
-      [
-        { key: "devices", label: "DEVICES" },
-        { key: "success", label: "ACCEPTED BY FCM" },
-        { key: "failure", label: "FAILED" },
-        { key: "errors", label: "ERRORS" },
-      ],
-      [summary],
-    );
-    if (summary.errors > 0 || summary.success === 0) {
-      throw new Error("Test notification delivery failed");
-    }
-    return summary;
-  }
+  try {
+    const projectId = getFirebaseProjectId(env);
 
-  console.log("========== SPX POLLING START ==========");
-  const watchDocuments = await listCollectionGroup(env, "watchlist");
-  console.log(`Packages to check: ${watchDocuments.length}`);
-  const summary = {
-    changed: 0,
-    completed: 0,
-    initialized: 0,
-    unchanged: 0,
-    removed: 0,
-    errors: 0,
-  };
-  const trackingLogRows = [];
-  const tokenCache = new Map();
-
-  await runWithConcurrency(watchDocuments, 5, async (watchDocument) => {
-    const trackingNumber =
-      watchDocument.data.trackingNumber || documentId(watchDocument);
-    const accountId = userId(watchDocument);
-    if (accountId === "unknown" || !trackingNumber) {
-      console.error(
-        `[TRACKING ERROR] account=${accountId} tracking=${trackingNumber || "unknown"} reason=invalid_watchlist_document document=${watchDocument.name}`,
-      );
-      trackingLogRows.push({
-        account: "(unknown)",
-        uid: accountId,
-        tracking: trackingNumber || "unknown",
-        result: "error",
-        notification: "-",
-        previousStatus: "-",
-        previousCode: "-",
-        previousTime: "-",
-        latestStatus: "-",
-        latestCode: "-",
-        latestTime: "-",
-        detail: "Invalid watchlist document",
-      });
-      summary.errors += 1;
-      return;
-    }
-
-    try {
-      const latest = await getTrackingStatus(trackingNumber);
-      if (!latest) {
-        const account = await getAccountInfo(env, accountId, accountCache);
-        trackingLogRows.push({
-          account: account.name,
-          uid: account.uid,
-          tracking: trackingNumber,
-          result: "no events",
-          notification: "no",
-          previousStatus: watchDocument.data.lastStatus || "-",
-          previousCode: watchDocument.data.lastStatusCode || "-",
-          previousTime:
-            normalizeTimestamp(
-              watchDocument.data.lastCheckpointTime ??
-                watchDocument.data.lastStatusAt,
-            ) || "-",
-          latestStatus: "-",
-          latestCode: "-",
-          latestTime: "-",
-          detail: "-",
-        });
-        summary.unchanged += 1;
-        return;
-      }
-      const result = await updateTrackingStatus(
+    if (testNotification) {
+      addRunEvent(report, "info", "Starting test notification run");
+      const testResult = await sendTestNotifications(
         env,
-        watchDocument,
-        latest,
-        tokenCache,
+        projectId,
+        accountCache,
       );
-      summary[result.outcome] += 1;
-      const account = await getAccountInfo(env, accountId, accountCache);
-      const previousStatus = watchDocument.data.lastStatus || "unknown";
-      const previousCode = watchDocument.data.lastStatusCode || "unknown";
-      const previousTimestamp = normalizeTimestamp(
-        watchDocument.data.lastCheckpointTime ??
-          watchDocument.data.lastStatusAt,
-      ) || "unknown";
-      trackingLogRows.push({
-        account: account.name,
-        uid: account.uid,
-        tracking: trackingNumber,
-        result: result.outcome,
-        notification: result.notification,
-        previousStatus,
-        previousCode,
-        previousTime: previousTimestamp,
-        latestStatus: latest.status,
-        latestCode: latest.statusCode,
-        latestTime: normalizeTimestamp(latest.timestamp) || "-",
-        detail: "-",
+      report.summary = testResult.summary;
+      report.tables.testNotifications = testResult.rows;
+      addRunEvent(report, "info", "Test notification run finished", {
+        ...testResult.summary,
       });
-    } catch (error) {
-      summary.errors += 1;
-      const account = await getAccountInfo(env, accountId, accountCache);
-      console.error(
-        `[TRACKING ERROR] account="${account.name}" uid=${account.uid} tracking=${trackingNumber} ${serializeError(error)}`,
+      logTable(
+        "TEST NOTIFICATION SUMMARY",
+        [
+          { key: "devices", label: "DEVICES" },
+          { key: "success", label: "ACCEPTED BY FCM" },
+          { key: "failure", label: "FAILED" },
+          { key: "errors", label: "ERRORS" },
+        ],
+        [testResult.summary],
       );
-      trackingLogRows.push({
-        account: account.name,
-        uid: account.uid,
-        tracking: trackingNumber,
-        result: "error",
-        notification: "-",
-        previousStatus: watchDocument.data.lastStatus || "-",
-        previousCode: watchDocument.data.lastStatusCode || "-",
-        previousTime: "-",
-        latestStatus: "-",
-        latestCode: "-",
-        latestTime: "-",
-        detail: error.message || String(error),
+      if (testResult.summary.errors > 0 || testResult.summary.success === 0) {
+        throw new Error("Test notification delivery failed");
+      }
+    } else {
+      console.log("========== SPX POLLING START ==========");
+      addRunEvent(report, "info", "SPX polling started");
+      const watchDocuments = await listCollectionGroup(env, "watchlist");
+      console.log(`Packages to check: ${watchDocuments.length}`);
+      addRunEvent(report, "info", "Loaded SPX watchlist", {
+        packages: watchDocuments.length,
       });
+      const summary = {
+        changed: 0,
+        completed: 0,
+        initialized: 0,
+        unchanged: 0,
+        removed: 0,
+        errors: 0,
+      };
+      const trackingLogRows = [];
+      const tokenCache = new Map();
+
+      await runWithConcurrency(watchDocuments, 5, async (watchDocument) => {
+        const trackingNumber =
+          watchDocument.data.trackingNumber || documentId(watchDocument);
+        const accountId = userId(watchDocument);
+        if (accountId === "unknown" || !trackingNumber) {
+          console.error(
+            `[TRACKING ERROR] account=${accountId} tracking=${trackingNumber || "unknown"} reason=invalid_watchlist_document document=${watchDocument.name}`,
+          );
+          addLogRow(trackingLogRows, {
+            account: "(unknown)",
+            uid: accountId,
+            tracking: trackingNumber || "unknown",
+            result: "error",
+            notification: "-",
+            previousStatus: "-",
+            previousCode: "-",
+            previousTime: "-",
+            latestStatus: "-",
+            latestCode: "-",
+            latestTime: "-",
+            detail: "Invalid watchlist document",
+          });
+          summary.errors += 1;
+          return;
+        }
+
+        try {
+          const latest = await getTrackingStatus(trackingNumber);
+          if (!latest) {
+            const account = await getAccountInfo(env, accountId, accountCache);
+            addLogRow(trackingLogRows, {
+              account: account.name,
+              uid: account.uid,
+              tracking: trackingNumber,
+              result: "no events",
+              notification: "no",
+              previousStatus: watchDocument.data.lastStatus || "-",
+              previousCode: watchDocument.data.lastStatusCode || "-",
+              previousTime:
+                normalizeTimestamp(
+                  watchDocument.data.lastCheckpointTime ??
+                    watchDocument.data.lastStatusAt,
+                ) || "-",
+              latestStatus: "-",
+              latestCode: "-",
+              latestTime: "-",
+              detail: "-",
+            });
+            summary.unchanged += 1;
+            return;
+          }
+          const result = await updateTrackingStatus(
+            env,
+            watchDocument,
+            latest,
+            tokenCache,
+          );
+          summary[result.outcome] += 1;
+          const account = await getAccountInfo(env, accountId, accountCache);
+          const previousStatus = watchDocument.data.lastStatus || "unknown";
+          const previousCode = watchDocument.data.lastStatusCode || "unknown";
+          const previousTimestamp = normalizeTimestamp(
+            watchDocument.data.lastCheckpointTime ??
+              watchDocument.data.lastStatusAt,
+          ) || "unknown";
+          addLogRow(trackingLogRows, {
+            account: account.name,
+            uid: account.uid,
+            tracking: trackingNumber,
+            result: result.outcome,
+            notification: result.notification,
+            previousStatus,
+            previousCode,
+            previousTime: previousTimestamp,
+            latestStatus: latest.status,
+            latestCode: latest.statusCode,
+            latestTime: normalizeTimestamp(latest.timestamp) || "-",
+            detail: "-",
+          });
+        } catch (error) {
+          summary.errors += 1;
+          const account = await getAccountInfo(env, accountId, accountCache);
+          console.error(
+            `[TRACKING ERROR] account="${account.name}" uid=${account.uid} tracking=${trackingNumber} ${serializeError(error)}`,
+          );
+          addLogRow(trackingLogRows, {
+            account: account.name,
+            uid: account.uid,
+            tracking: trackingNumber,
+            result: "error",
+            notification: "-",
+            previousStatus: watchDocument.data.lastStatus || "-",
+            previousCode: watchDocument.data.lastStatusCode || "-",
+            previousTime: "-",
+            latestStatus: "-",
+            latestCode: "-",
+            latestTime: "-",
+            detail: error.message || String(error),
+          });
+        }
+      });
+
+      report.tables.tracking = trackingLogRows;
+      logTable(
+        "TRACKING STATUS",
+        [
+          { key: "time", label: "TIME" },
+          { key: "account", label: "ACCOUNT NAME" },
+          { key: "uid", label: "ACCOUNT UID" },
+          { key: "tracking", label: "TRACKING" },
+          { key: "result", label: "RESULT" },
+          { key: "notification", label: "NOTIFY" },
+          { key: "previousStatus", label: "OLD STATUS" },
+          { key: "previousCode", label: "OLD CODE" },
+          { key: "previousTime", label: "OLD TIME" },
+          { key: "latestStatus", label: "NEW STATUS" },
+          { key: "latestCode", label: "NEW CODE" },
+          { key: "latestTime", label: "NEW TIME" },
+          { key: "detail", label: "DETAIL" },
+        ],
+        trackingLogRows,
+      );
+
+      const notificationResult = await sendPendingNotifications(
+        env,
+        projectId,
+        accountCache,
+      );
+      summary.notificationErrors = notificationResult.errors;
+      report.tables.notifications = notificationResult.rows;
+      addRunEvent(report, "info", "Notification queue processed", {
+        scanned: notificationResult.scanned,
+        pending: notificationResult.pending,
+        errors: notificationResult.errors,
+      });
+      const deletedNotifications =
+        await cleanupExpiredNotificationEvents(env);
+      addRunEvent(report, "info", "Expired notification cleanup finished", {
+        deleted: deletedNotifications,
+        retentionDays: 7,
+      });
+      report.summary = { total: watchDocuments.length, ...summary };
+      console.log("========== SPX POLLING SUMMARY ==========");
+      console.log(JSON.stringify(report.summary));
+      if (summary.errors > 0 || summary.notificationErrors > 0) {
+        throw new Error(
+          `${summary.errors} tracking checks and ${summary.notificationErrors} notification events failed`,
+        );
+      }
     }
-  });
 
-  logTable(
-    "TRACKING STATUS",
-    [
-      { key: "account", label: "ACCOUNT NAME" },
-      { key: "uid", label: "ACCOUNT UID" },
-      { key: "tracking", label: "TRACKING" },
-      { key: "result", label: "RESULT" },
-      { key: "notification", label: "NOTIFY" },
-      { key: "previousStatus", label: "OLD STATUS" },
-      { key: "previousCode", label: "OLD CODE" },
-      { key: "previousTime", label: "OLD TIME" },
-      { key: "latestStatus", label: "NEW STATUS" },
-      { key: "latestCode", label: "NEW CODE" },
-      { key: "latestTime", label: "NEW TIME" },
-      { key: "detail", label: "DETAIL" },
-    ],
-    trackingLogRows,
-  );
-
-  summary.notificationErrors = await sendPendingNotifications(
-    env,
-    projectId,
-    accountCache,
-  );
-  await cleanupExpiredNotificationEvents(env);
-  console.log("========== SPX POLLING SUMMARY ==========");
-  console.log(JSON.stringify({ total: watchDocuments.length, ...summary }));
-  if (summary.errors > 0 || summary.notificationErrors > 0) {
-    throw new Error(
-      `${summary.errors} tracking checks and ${summary.notificationErrors} notification events failed`,
-    );
+    report.status = "success";
+    report.finishedAt = new Date().toISOString();
+    return report;
+  } catch (error) {
+    report.status = "error";
+    report.finishedAt = new Date().toISOString();
+    report.error = {
+      name: error?.name || "Error",
+      message: error?.message || String(error),
+      stack: error?.stack || "",
+    };
+    addRunEvent(report, "error", report.error.message);
+    const reportError =
+      error && (typeof error === "object" || typeof error === "function")
+        ? error
+        : new Error(String(error));
+    reportError.report = report;
+    throw reportError;
   }
-  return { total: watchDocuments.length, ...summary };
 }
