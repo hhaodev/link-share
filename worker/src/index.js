@@ -87,7 +87,7 @@ const html = `
     <section>
       <h2>Tracking status by account and package</h2>
       <div class="table-wrap"><table><thead><tr>
-        <th>Time</th><th>Account</th><th>Account UID</th><th>Tracking</th><th>Result</th><th>Notification</th>
+        <th>Time</th><th>Account</th><th>Account UID</th><th>Tracking</th><th>Nickname</th><th>Result</th><th>Notification</th>
         <th>Old status</th><th>Old code</th><th>Old time</th><th>New status</th><th>New code</th><th>New time</th><th>Detail</th>
       </tr></thead><tbody id="trackingRows"></tbody></table></div>
     </section>
@@ -151,7 +151,7 @@ const html = `
         document.getElementById('runMeta').textContent = 'No report has been saved yet.';
         document.getElementById('summary').replaceChildren();
         document.getElementById('events').replaceChildren();
-        renderTable('trackingRows', [], Array(13).fill({ key: '' }));
+        renderTable('trackingRows', [], Array(14).fill({ key: '' }));
         renderTable('notificationRows', [], Array(8).fill({ key: '' }));
         renderTable('testRows', [], Array(6).fill({ key: '' }));
         return;
@@ -198,7 +198,7 @@ const html = `
 
       renderTable('trackingRows', report.tables?.tracking, [
         { key: 'time' }, { key: 'account' }, { key: 'uid' }, { key: 'tracking' },
-        { key: 'result' }, { key: 'notification' }, { key: 'previousStatus' },
+        { key: 'nickname' }, { key: 'result' }, { key: 'notification' }, { key: 'previousStatus' },
         { key: 'previousCode' }, { key: 'previousTime' }, { key: 'latestStatus' },
         { key: 'latestCode' }, { key: 'latestTime' }, { key: 'detail' }
       ]);

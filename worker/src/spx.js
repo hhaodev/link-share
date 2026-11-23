@@ -218,15 +218,34 @@ async function updateTrackingStatus(env, watchDocument, latest, tokenCache) {
   }
 
   const writes = [];
-  const eventDocument = shouldNotify
-    ? await getDocument(env, event.path)
-    : null;
+  const eventDocument = shouldNotify ? await getDocument(env, event.path) : null;
   const canQueueNotification =
     shouldNotify &&
     (eventDocument || (await hasUserFcmTokens(env, user, tokenCache)));
 
   if (completed) {
-    if (eventDocument && shouldNotify) {
+    writes.push(
+      updateWrite(
+        watchDocument,
+        {
+          lastStatus: latest.status,
+          lastStatusCode: latest.statusCode,
+          lastCheckpointTime: latest.timestamp,
+          lastStatusAt: latest.timestamp,
+          completed: true,
+        },
+        [
+          "lastStatus",
+          "lastStatusCode",
+          "lastCheckpointTime",
+          "lastStatusAt",
+          "completed",
+        ],
+        ["updatedAt"],
+      ),
+    );
+
+    if (shouldNotify && eventDocument) {
       writes.push(
         updateWrite(
           eventDocument,
@@ -252,17 +271,19 @@ async function updateTrackingStatus(env, watchDocument, latest, tokenCache) {
         ),
       );
     }
-    writes.push(deleteWrite(watchDocument));
+
     await commitWrites(env, writes);
     return {
       outcome: "completed",
       notification: !shouldNotify
         ? "no"
-        : !canQueueNotification
+        : eventDocument?.data.state === "no_tokens"
           ? "skipped_no_tokens"
-          : eventDocument
-            ? "deduplicated"
-            : "queued",
+          : !canQueueNotification
+            ? "skipped_no_tokens"
+            : eventDocument
+              ? "deduplicated"
+              : "queued",
     };
   }
 
@@ -307,11 +328,13 @@ async function updateTrackingStatus(env, watchDocument, latest, tokenCache) {
     outcome: changed && hadPreviousStatus ? "changed" : "initialized",
     notification: !shouldNotify
       ? "no"
-      : !canQueueNotification
+      : eventDocument?.data.state === "no_tokens"
         ? "skipped_no_tokens"
-        : eventDocument
-          ? "deduplicated"
-          : "queued",
+        : !canQueueNotification
+          ? "skipped_no_tokens"
+          : eventDocument
+            ? "deduplicated"
+            : "queued",
   };
 }
 
@@ -392,7 +415,7 @@ async function sendNotificationEvent(
         status: eventData.status || "-",
         device: "-",
         result: "no tokens",
-        error: "-",
+        error: "Notifications were disabled when the event was processed",
       });
       return;
     }
@@ -522,7 +545,14 @@ async function sendNotificationEvent(
     tracking: eventData.trackingNumber,
     status: eventData.status || "-",
     device: "TOTAL",
-    result: pendingTokenSet.size === 0 ? "accepted by FCM" : "pending retry",
+    result:
+      pendingTokenSet.size > 0
+        ? "pending retry"
+        : acceptedCount > 0
+          ? "accepted by FCM"
+          : invalidTokenCount > 0
+            ? "no valid devices"
+            : "no pending devices",
     error: `accepted=${acceptedCount}, retry=${retryCount}, invalid=${invalidTokenCount}, remaining=${pendingTokenSet.size}`,
   });
 }
@@ -796,6 +826,7 @@ export async function pollSPX(env, testNotification = false) {
             account: "(unknown)",
             uid: accountId,
             tracking: trackingNumber || "unknown",
+            nickname: watchDocument.data.nickname || "-",
             result: "error",
             notification: "-",
             previousStatus: "-",
@@ -809,6 +840,30 @@ export async function pollSPX(env, testNotification = false) {
           summary.errors += 1;
           return;
         }
+        if (watchDocument.data.completed === true) {
+          summary.completed += 1;
+          const account = await getAccountInfo(env, accountId, accountCache);
+          addLogRow(trackingLogRows, {
+            account: account.name,
+            uid: accountId,
+            tracking: trackingNumber,
+            nickname: watchDocument.data.nickname || "-",
+            result: "completed",
+            notification: "no",
+            previousStatus: watchDocument.data.lastStatus || "-",
+            previousCode: watchDocument.data.lastStatusCode || "-",
+            previousTime:
+              normalizeTimestamp(
+                watchDocument.data.lastCheckpointTime ??
+                  watchDocument.data.lastStatusAt,
+              ) || "-",
+            latestStatus: "-",
+            latestCode: "-",
+            latestTime: "-",
+            detail: "Completed package; polling skipped",
+          });
+          return;
+        }
 
         try {
           const latest = await getTrackingStatus(trackingNumber);
@@ -818,6 +873,7 @@ export async function pollSPX(env, testNotification = false) {
               account: account.name,
               uid: account.uid,
               tracking: trackingNumber,
+              nickname: watchDocument.data.nickname || "-",
               result: "no events",
               notification: "no",
               previousStatus: watchDocument.data.lastStatus || "-",
@@ -853,6 +909,7 @@ export async function pollSPX(env, testNotification = false) {
             account: account.name,
             uid: account.uid,
             tracking: trackingNumber,
+            nickname: watchDocument.data.nickname || "-",
             result: result.outcome,
             notification: result.notification,
             previousStatus,
@@ -873,6 +930,7 @@ export async function pollSPX(env, testNotification = false) {
             account: account.name,
             uid: account.uid,
             tracking: trackingNumber,
+            nickname: watchDocument.data.nickname || "-",
             result: "error",
             notification: "-",
             previousStatus: watchDocument.data.lastStatus || "-",
@@ -894,6 +952,7 @@ export async function pollSPX(env, testNotification = false) {
           { key: "account", label: "ACCOUNT NAME" },
           { key: "uid", label: "ACCOUNT UID" },
           { key: "tracking", label: "TRACKING" },
+          { key: "nickname", label: "NICKNAME" },
           { key: "result", label: "RESULT" },
           { key: "notification", label: "NOTIFY" },
           { key: "previousStatus", label: "OLD STATUS" },
