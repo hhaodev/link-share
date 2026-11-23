@@ -1,0 +1,25 @@
+{
+  "name": "Space Tool",
+  "short_name": "Space Tool",
+  "id": "/",
+  "description": "Chia sẻ liên kết và theo dõi đơn hàng SPX.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#171124",
+  "theme_color": "#171124",
+  "related_applications": [
+    {
+      "platform": "webapp",
+      "id": "/"
+    }
+  ],
+  "icons": [
+    {
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

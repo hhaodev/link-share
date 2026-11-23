@@ -21,12 +21,7 @@ export default function PackageTrackerPage() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [profileError, setProfileError] = useState("");
-  const [notificationStatus, setNotificationStatus] = useState(null);
-
-  const notificationsEnabled =
-    notificationStatus?.userId === user?.uid
-      ? notificationStatus?.enabled
-      : null;
+  const [notificationData, setNotificationData] = useState(null);
 
   useEffect(() => {
     return onAuthStateChanged(auth, (authenticatedUser) => {
@@ -34,7 +29,7 @@ export default function PackageTrackerPage() {
       setAuthLoading(false);
 
       if (!authenticatedUser) {
-        setNotificationStatus(null);
+        setNotificationData(null);
         return;
       }
 
@@ -70,7 +65,7 @@ export default function PackageTrackerPage() {
     const unsubscribe = onSnapshot(
       tokensQuery,
       (snapshot) => {
-        setNotificationStatus({
+        setNotificationData({
           userId,
           enabled: !snapshot.empty,
           error: null,
@@ -78,7 +73,7 @@ export default function PackageTrackerPage() {
       },
       (error) => {
         console.error("Failed to load notification status:", error);
-        setNotificationStatus({ userId, enabled: null, error });
+        setNotificationData({ userId, enabled: null, error });
       },
     );
 
@@ -93,10 +88,9 @@ export default function PackageTrackerPage() {
     user,
     setUser,
     authLoading,
-    notificationsEnabled,
     setNotificationsEnabled: (enabled) =>
-      setNotificationStatus({ userId: user?.uid, enabled }),
-    notificationStatus,
+      setNotificationData({ userId: user?.uid, enabled }),
+    notificationData,
     profileError,
   };
 

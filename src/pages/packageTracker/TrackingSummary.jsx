@@ -18,7 +18,7 @@ export default function TrackingSummary({
   user,
   isWatching,
   toggling,
-  watchlist,
+  watchList,
   onToggleWatch,
   onSignIn,
   onBack,
@@ -74,14 +74,14 @@ export default function TrackingSummary({
         </Button>
         {!error && !searchLoading && (
           <>
-            {authLoading || watchlist?.loading ? (
+            {authLoading || watchList?.loading ? (
               <Button loading disabled>
                 Đang kiểm tra...
               </Button>
             ) : user ? (
               <Button
                 type={isWatching ? "primary" : "default"}
-                loading={toggling || watchlist?.loading}
+                loading={toggling || watchList?.loading}
                 icon={isWatching ? <BellFilled /> : <BellOutlined />}
                 onClick={onToggleWatch}
               >
@@ -162,7 +162,6 @@ export default function TrackingSummary({
                 style={{
                   borderColor: "var(--app-accent-subtle)",
                   borderRadius: "var(--app-radius-control)",
-                  background: "var(--app-accent-subtle)",
                   color: "var(--app-accent-foreground)",
                 }}
                 icon={<ShareAltOutlined />}

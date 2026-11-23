@@ -24,10 +24,9 @@ export default function useTrackingNickname(trackingNumber, currentNickname) {
     const trimmedNickname = nickname.trim();
     setSaving(true);
     try {
-      await updateDoc(
-        doc(db, "users", user.uid, "watchlist", trackingNumber),
-        { nickname: trimmedNickname },
-      );
+      await updateDoc(doc(db, "users", user.uid, "watchlist", trackingNumber), {
+        nickname: trimmedNickname,
+      });
       setNickname(trimmedNickname);
       setEditing(false);
     } catch (error) {

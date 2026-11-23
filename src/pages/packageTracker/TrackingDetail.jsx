@@ -17,7 +17,7 @@ export default function TrackingDetail({
   authLoading,
   loading,
   error,
-  watchlist,
+  watchList,
 }) {
   const user = useUser();
   const { trackingNumber, status } = result;
@@ -65,7 +65,7 @@ export default function TrackingDetail({
         user={user}
         isWatching={isWatching}
         toggling={toggling}
-        watchlist={watchlist}
+        watchList={watchList}
         onToggleWatch={handleToggleWatch}
         onSignIn={onSignIn}
         onBack={onBack}

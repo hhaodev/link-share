@@ -1,16 +1,17 @@
 import { useState } from "react";
 import { Badge, Space, Spin, Tabs } from "antd";
-import WatchList from "./WatchList";
 import HistoryList from "./HistoryList";
+import WatchList from "./WatchList";
 
 export default function TrackerLists({
-  watchlist,
+  watchList,
   history,
   watchedItems,
   historyItems,
   onSearch,
   onRemoveWatch,
   onDeleteHistory,
+  isPolling,
 }) {
   const [activeTab, setActiveTab] = useState("watch");
 
@@ -20,22 +21,23 @@ export default function TrackerLists({
       label: (
         <Space size={6}>
           Đang theo dõi
-          {!watchlist.loading && watchedItems.length > 0 && (
+          {!watchList.loading && watchedItems.length > 0 && (
             <Badge count={watchedItems.length} color="var(--app-accent)" />
           )}
         </Space>
       ),
-      children: watchlist.loading ? (
-        <div style={{ padding: 24, textAlign: "center" }}>
-          <Spin />
-        </div>
-      ) : (
-        <WatchList
-          items={watchedItems}
-          onSearch={onSearch}
-          onRemove={onRemoveWatch}
-        />
-      ),
+      children:
+        watchList.loading || isPolling ? (
+          <div style={{ padding: 24, textAlign: "center" }}>
+            <Spin />
+          </div>
+        ) : (
+          <WatchList
+            items={watchedItems}
+            onSearch={onSearch}
+            onRemove={onRemoveWatch}
+          />
+        ),
     },
     {
       key: "history",

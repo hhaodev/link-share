@@ -6,19 +6,17 @@ import "./index.css";
 import App from "./App.jsx";
 
 createRoot(document.getElementById("root")).render(
-  <StrictMode>
-    <ConfigProvider
-      locale={viVN}
-      theme={{
-        algorithm: theme.darkAlgorithm,
-        token: {
-          colorPrimary: "#aa3bff",
-          borderRadius: 8,
-          fontFamily: "system-ui, 'Segoe UI', Roboto, sans-serif",
-        },
-      }}
-    >
-      <App />
-    </ConfigProvider>
-  </StrictMode>,
+  <ConfigProvider
+    locale={viVN}
+    theme={{
+      algorithm: theme.darkAlgorithm,
+      token: {
+        colorPrimary: "#aa3bff",
+        borderRadius: 8,
+        fontFamily: "system-ui, 'Segoe UI', Roboto, sans-serif",
+      },
+    }}
+  >
+    <App />
+  </ConfigProvider>,
 );

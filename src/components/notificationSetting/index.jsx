@@ -6,7 +6,11 @@ import {
 } from "../../firebase/notification";
 import { useUser } from "../../contexts/UserContext";
 
-export default function NotificationSettings({ enabled, onChange }) {
+export default function NotificationSettings({
+  enabled,
+  onChange,
+  loadingProps,
+}) {
   const user = useUser();
   const [loading, setLoading] = useState(false);
 
@@ -41,7 +45,7 @@ export default function NotificationSettings({ enabled, onChange }) {
   return (
     <Switch
       checked={enabled}
-      loading={loading}
+      loading={loading || loadingProps}
       checkedChildren="Bật"
       unCheckedChildren="Tắt"
       aria-label="Cài đặt thông báo"

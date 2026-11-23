@@ -10,23 +10,52 @@ import {
   Typography,
   message,
 } from "antd";
-import { LogoutOutlined, SettingOutlined } from "@ant-design/icons";
+import {
+  BellFilled,
+  BellOutlined,
+  DownloadOutlined,
+  LogoutOutlined,
+  SettingOutlined,
+} from "@ant-design/icons";
 import { useState } from "react";
 import { auth } from "../../firebase";
 import { useUser, useUserContext } from "../../contexts/UserContext";
 import { disableNotification } from "../../firebase/notification";
 import NotificationSettings from "../../components/notificationSetting";
+import { useGlobal } from "../../contexts/GlobalContext";
 
-export default function TrackerAccountBar({
-  notificationsEnabled,
-  notificationStatus,
-  onNotificationsChange,
-  onSignIn,
-}) {
+export default function TrackerAccountBar({ onSignIn }) {
   const user = useUser();
-  const { authLoading } = useUserContext();
+  const { installPrompt, setInstallPrompt, isAppInstalled, markAppInstalled } =
+    useGlobal();
+  const {
+    authLoading,
+    notificationStatus,
+    notificationData,
+    setNotificationsEnabled,
+  } = useUserContext();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [showInstallInstructions, setShowInstallInstructions] = useState(false);
+
+  async function handleInstallApp() {
+    if (!installPrompt) {
+      setShowInstallInstructions(true);
+      return;
+    }
+
+    try {
+      const promptEvent = installPrompt;
+      setInstallPrompt(null);
+      await promptEvent.prompt();
+      const { outcome } = await promptEvent.userChoice;
+      if (outcome === "accepted") {
+        markAppInstalled();
+      }
+    } catch (error) {
+      message.error(error.message || "Không thể cài đặt ứng dụng");
+    }
+  }
 
   async function handleSignOut() {
     setSigningOut(true);
@@ -63,22 +92,16 @@ export default function TrackerAccountBar({
             <div className="tracker-account-copy">
               <div className="tracker-account-name">
                 <Typography.Text strong>{user.displayName}</Typography.Text>
-                {notificationsEnabled === null ? (
-                  notificationStatus?.userId === user.uid &&
-                  notificationStatus.error ? (
+                {notificationData === null ? (
+                  notificationStatus?.error ? (
                     <Tag color="red">Không rõ trạng thái</Tag>
                   ) : (
                     <Spin size="small" />
                   )
+                ) : !notificationData?.enabled ? (
+                  <BellOutlined />
                 ) : (
-                  <Tag
-                    style={{ fontSize: 10 }}
-                    color={notificationsEnabled ? "green" : "default"}
-                  >
-                    {notificationsEnabled
-                      ? "Đang nhận thông báo"
-                      : "Không nhận thông báo"}
-                  </Tag>
+                  <BellFilled />
                 )}
               </div>
               <Typography.Text type="secondary">{user.email}</Typography.Text>
@@ -129,16 +152,16 @@ export default function TrackerAccountBar({
             >
               <Typography.Text strong>Thông báo đơn hàng</Typography.Text>
               <NotificationSettings
-                enabled={notificationsEnabled}
-                onChange={onNotificationsChange}
+                enabled={notificationData?.enabled}
+                onChange={setNotificationsEnabled}
+                loadingProps={notificationData === null}
               />
             </Space>
             <Typography.Paragraph type="secondary">
               Nhận thông báo khi trạng thái đơn hàng được cập nhật.
             </Typography.Paragraph>
-            {notificationsEnabled === null &&
-              (notificationStatus?.userId === user?.uid &&
-              notificationStatus.error ? (
+            {notificationData?.enabled === null &&
+              (notificationData?.error ? (
                 <Alert
                   type="error"
                   showIcon
@@ -148,6 +171,32 @@ export default function TrackerAccountBar({
                 <Spin size="small" />
               ))}
           </div>
+          {!isAppInstalled && (
+            <div>
+              <Button
+                block
+                icon={<DownloadOutlined />}
+                onClick={handleInstallApp}
+                style={{ padding: "20px 0px" }}
+              >
+                Thêm vào màn hình chính
+              </Button>
+              {showInstallInstructions && (
+                <Alert
+                  type="info"
+                  showIcon
+                  style={{ marginTop: 12 }}
+                  closable
+                  onClose={() => setShowInstallInstructions(false)}
+                  description={
+                    /iPhone|iPad|iPod/i.test(navigator.userAgent)
+                      ? 'Trong Safari, nhấn nút Chia sẻ rồi chọn "Thêm vào màn hình chính".'
+                      : 'Mở menu của trình duyệt rồi chọn "Cài đặt ứng dụng" hoặc "Thêm vào màn hình chính".'
+                  }
+                />
+              )}
+            </div>
+          )}
           <Button
             danger
             block

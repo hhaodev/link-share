@@ -1,9 +1,27 @@
-import { useState } from "react";
+import { useState, forwardRef, useImperativeHandle } from "react";
 import { Input, Button, Space } from "antd";
-import { SearchOutlined } from "@ant-design/icons";
 
-export default function TrackingForm({ onSearch, loading }) {
+const TrackingForm = forwardRef(function TrackingForm(
+  { onSearch, loading },
+  ref,
+) {
   const [input, setInput] = useState("");
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      setValue(value) {
+        setInput((value || "").toUpperCase());
+      },
+      getValue() {
+        return input;
+      },
+      clear() {
+        setInput("");
+      },
+    }),
+    [input],
+  );
 
   function handleSearch() {
     const tn = input.trim();
@@ -23,6 +41,7 @@ export default function TrackingForm({ onSearch, loading }) {
         allowClear
         size="large"
       />
+
       <Button
         type="primary"
         size="large"
@@ -34,4 +53,6 @@ export default function TrackingForm({ onSearch, loading }) {
       </Button>
     </Space.Compact>
   );
-}
+});
+
+export default TrackingForm;

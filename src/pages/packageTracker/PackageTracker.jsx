@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { Alert, Modal, Space, Typography } from "antd";
 import { db } from "../../firebase";
@@ -16,13 +16,8 @@ const VITE_INTERVAL_REFRESH_DETAIL = 60 * 1000; // 60 seconds
 
 export default function PackageTracker() {
   const user = useUser();
-  const {
-    authLoading,
-    notificationsEnabled,
-    notificationStatus,
-    setNotificationsEnabled,
-  } = useUserContext();
-  const { setTrackingNumber } = useGlobal();
+  const { authLoading } = useUserContext();
+  const { trackingNumber, setTrackingNumber } = useGlobal();
   const [loginModalOpen, setLoginModalOpen] = useState(false);
 
   const [searchLoading, setSearchLoading] = useState(false);
@@ -30,13 +25,18 @@ export default function PackageTracker() {
   const [result, setResult] = useState({ checkpoints: [] });
   const [activeView, setActiveView] = useState("list");
 
-  const watchlist = useUserCollection(user?.uid, "watchlist", "updatedAt");
+  const watchList = useUserCollection(user?.uid, "watchlist", "updatedAt");
   const history = useUserCollection(user?.uid, "history", "searchedAt");
-  const watchedItems = watchlist.items;
+  const watchedItems = watchList.items;
   const historyItems = history.items;
   const watchedMap = Object.fromEntries(
     watchedItems.map((item) => [item.trackingNumber, true]),
   );
+
+  const trackingFormRef = useRef();
+
+  const [isFirstVisit, setIsFirstVisit] = useState(true);
+  const [isPolling, setIsPolling] = useState(true);
 
   async function handleSearch(trackingNumber, options = {}) {
     const { updateUrl = true, saveHistory = true } = options;
@@ -45,7 +45,7 @@ export default function PackageTracker() {
     if (updateUrl) {
       setTrackingNumber(normalizedTrackingNumber);
     }
-
+    trackingFormRef.current.setValue(normalizedTrackingNumber);
     setActiveView("detail");
     setSearchLoading(true);
     setSearchError("");
@@ -75,9 +75,6 @@ export default function PackageTracker() {
 
   useEffect(() => {
     const syncTrackingFromUrl = () => {
-      const trackingNumber = new URLSearchParams(window.location.search).get(
-        "tracking",
-      );
       if (trackingNumber) {
         handleSearch(trackingNumber, {
           updateUrl: false,
@@ -105,9 +102,14 @@ export default function PackageTracker() {
     }
   }
 
-  async function refreshWatchlist() {
-    if (!user || watchedItems.length === 0) return;
-
+  async function refreshwatchList() {
+    if (!user || watchedItems.length === 0) {
+      setIsPolling(false);
+      return;
+    }
+    if (isFirstVisit) {
+      setIsPolling(true);
+    }
     await Promise.allSettled(
       watchedItems.map(async (item) => {
         const data = await fetchTracking(item.trackingNumber);
@@ -140,7 +142,7 @@ export default function PackageTracker() {
           { merge: true },
         );
 
-        watchlist.updateItems((items) =>
+        watchList.updateItems((items) =>
           items
             .map((watchedItem) =>
               watchedItem.trackingNumber === data.trackingNumber
@@ -157,6 +159,8 @@ export default function PackageTracker() {
         );
       }),
     );
+    setIsPolling(false);
+    setIsFirstVisit(false);
   }
 
   useEffect(() => {
@@ -172,16 +176,16 @@ export default function PackageTracker() {
   useEffect(() => {
     if (!user) return undefined;
 
-    refreshWatchlist();
+    refreshwatchList();
     const intervalId = window.setInterval(
-      refreshWatchlist,
+      refreshwatchList,
       VITE_INTERVAL_REFRESH_DETAIL,
     );
     return () => window.clearInterval(intervalId);
   }, [user?.uid, watchedItems.map((item) => item.trackingNumber).join(",")]);
 
   function handleWatchChange(trackingNumber, watching) {
-    watchlist.updateItems((items) => {
+    watchList.updateItems((items) => {
       if (!watching) {
         return items.filter((item) => item.trackingNumber !== trackingNumber);
       }
@@ -193,7 +197,7 @@ export default function PackageTracker() {
   }
 
   function handleRemoveWatch(trackingNumber) {
-    watchlist.updateItems((items) =>
+    watchList.updateItems((items) =>
       items.filter((item) => item.trackingNumber !== trackingNumber),
     );
   }
@@ -206,12 +210,7 @@ export default function PackageTracker() {
 
   return (
     <div className="tracker-page">
-      <TrackerAccountBar
-        notificationsEnabled={notificationsEnabled}
-        notificationStatus={notificationStatus}
-        onNotificationsChange={setNotificationsEnabled}
-        onSignIn={() => setLoginModalOpen(true)}
-      />
+      <TrackerAccountBar onSignIn={() => setLoginModalOpen(true)} />
       <section>
         <div className="tracker-search-panel">
           <div className="tracker-search-heading">
@@ -221,7 +220,11 @@ export default function PackageTracker() {
               </Typography.Text>
             </div>
           </div>
-          <TrackingForm onSearch={handleSearch} loading={searchLoading} />
+          <TrackingForm
+            ref={trackingFormRef}
+            onSearch={handleSearch}
+            loading={searchLoading}
+          />
         </div>
       </section>
 
@@ -236,23 +239,25 @@ export default function PackageTracker() {
           onBack={() => {
             setTrackingNumber("");
             setActiveView("list");
+            trackingFormRef.current.clear();
           }}
           authLoading={authLoading}
           loading={searchLoading}
           error={searchError}
-          watchlist={watchlist}
+          watchList={watchList}
         />
       )}
 
       {activeView === "list" && user && (
         <TrackerLists
-          watchlist={watchlist}
+          watchList={watchList}
           history={history}
           watchedItems={watchedItems}
           historyItems={historyItems}
           onSearch={handleSearch}
           onRemoveWatch={handleRemoveWatch}
           onDeleteHistory={handleDeleteHistory}
+          isPolling={isPolling}
         />
       )}
 
