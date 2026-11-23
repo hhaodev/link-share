@@ -47,7 +47,7 @@ const html = `
     table { width: 100%; border-collapse: collapse; font-size: 12px; white-space: nowrap; }
     th, td { padding: 8px 10px; text-align: left; vertical-align: top; border-bottom: 1px solid #eaecf0; }
     th { position: sticky; top: 0; z-index: 1; background: #f8fafc; color: #475467; }
-    td.detail { max-width: 420px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    td.detail { white-space: nowrap; }
     tr:last-child td { border-bottom: 0; }
     #events { margin: 0; padding-left: 22px; }
     #events li { margin: 5px 0; overflow-wrap: anywhere; }
@@ -259,7 +259,7 @@ const html = `
 function isAuthorized(request, env) {
   return Boolean(
     env.POLL_SECRET &&
-      request.headers.get("Authorization") === `Bearer ${env.POLL_SECRET}`,
+    request.headers.get("Authorization") === `Bearer ${env.POLL_SECRET}`,
   );
 }
 
@@ -268,21 +268,23 @@ async function runForAdmin(env, testNotification = false) {
     return await pollSPX(env, testNotification);
   } catch (error) {
     console.error("FATAL SPX polling error:", error);
-    return error?.report || {
-      runId: crypto.randomUUID(),
-      mode: testNotification ? "test-notification" : "spx-poll",
-      status: "error",
-      startedAt: new Date().toISOString(),
-      finishedAt: new Date().toISOString(),
-      summary: null,
-      events: [],
-      tables: { tracking: [], notifications: [], testNotifications: [] },
-      error: {
-        name: error?.name || "Error",
-        message: error?.message || String(error),
-        stack: error?.stack || "",
-      },
-    };
+    return (
+      error?.report || {
+        runId: crypto.randomUUID(),
+        mode: testNotification ? "test-notification" : "spx-poll",
+        status: "error",
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+        summary: null,
+        events: [],
+        tables: { tracking: [], notifications: [], testNotifications: [] },
+        error: {
+          name: error?.name || "Error",
+          message: error?.message || String(error),
+          stack: error?.stack || "",
+        },
+      }
+    );
   }
 }
 
