@@ -1,0 +1,15 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "notificationQueue",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "state",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

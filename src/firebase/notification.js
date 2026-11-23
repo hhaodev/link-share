@@ -1,4 +1,4 @@
-import { deleteToken, getToken } from "firebase/messaging";
+import { deleteToken, getToken, onMessage } from "firebase/messaging";
 import {
   collection,
   doc,
@@ -130,6 +130,33 @@ async function getCurrentToken() {
   });
   if (!token) throw new Error("Không lấy được FCM Token");
   return { messaging, token };
+}
+
+export async function listenForForegroundNotifications() {
+  if (!("Notification" in window) || Notification.permission !== "granted") {
+    return () => {};
+  }
+
+  const messaging = await getFirebaseMessaging();
+  if (!messaging) return () => {};
+
+  const registration = await getMessagingServiceWorkerRegistration();
+  return onMessage(messaging, (payload) => {
+    const trackingNumber = payload.data?.trackingNumber;
+    registration
+      .showNotification(
+        payload.notification?.title || payload.data?.title || "Thông báo mới",
+        {
+          body: payload.notification?.body || payload.data?.body || "",
+          icon: payload.notification?.icon || "/app-icon.svg",
+          tag: trackingNumber ? `spx-${trackingNumber}` : undefined,
+          data: payload.data || {},
+        },
+      )
+      .catch((error) => {
+        console.error("Failed to display foreground push notification:", error);
+      });
+  });
 }
 
 export function enableNotification(userId) {

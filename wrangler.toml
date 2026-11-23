@@ -1,0 +1,9 @@
+name = "link-share-spx-worker"
+main = "worker/src/index.js"
+compatibility_date = "2026-11-23"
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[observability]
+enabled = true

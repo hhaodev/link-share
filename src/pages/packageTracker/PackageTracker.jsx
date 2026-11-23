@@ -35,7 +35,7 @@ export default function PackageTracker() {
 
   const trackingFormRef = useRef();
 
-  const [isFirstVisit, setIsFirstVisit] = useState(true);
+  const isFirstVisit = useRef(true);
   const [isPolling, setIsPolling] = useState(true);
 
   async function handleSearch(trackingNumber, options = {}) {
@@ -107,7 +107,7 @@ export default function PackageTracker() {
       setIsPolling(false);
       return;
     }
-    if (isFirstVisit) {
+    if (isFirstVisit.current) {
       setIsPolling(true);
     }
     await Promise.allSettled(
@@ -160,7 +160,7 @@ export default function PackageTracker() {
       }),
     );
     setIsPolling(false);
-    setIsFirstVisit(false);
+    isFirstVisit.current = false;
   }
 
   useEffect(() => {

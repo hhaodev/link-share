@@ -13,6 +13,7 @@ import { UserContext } from "../../contexts/UserContext";
 import { auth, db } from "../../firebase";
 import {
   getNotificationDeviceId,
+  listenForForegroundNotifications,
   syncNotificationToken,
 } from "../../firebase/notification";
 import PackageTracker from "./PackageTracker";
@@ -77,11 +78,29 @@ export default function PackageTrackerPage() {
       },
     );
 
+    let active = true;
+    let unsubscribeForeground;
+    listenForForegroundNotifications()
+      .then((unsubscribe) => {
+        if (active) {
+          unsubscribeForeground = unsubscribe;
+        } else {
+          unsubscribe();
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to listen for foreground notifications:", error);
+      });
+
     syncNotificationToken(userId).catch((error) => {
       console.error("Failed to synchronize the FCM token:", error);
     });
 
-    return unsubscribe;
+    return () => {
+      active = false;
+      unsubscribe();
+      unsubscribeForeground?.();
+    };
   }, [user]);
 
   const contextValue = {

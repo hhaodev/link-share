@@ -1,0 +1,873 @@
+import {
+  getLatestSPXStatus,
+  fetchSPXResponse,
+  parseSPXResponse,
+} from "../../src/utils/spx.js";
+import {
+  commitWrites,
+  createWrite,
+  deleteWrite,
+  firestoreDocumentName,
+  getDocument,
+  getDocumentPath,
+  listCollectionGroup,
+  listSubcollection,
+  updateWrite,
+} from "./firestore.js";
+import { getFirebaseProjectId, sendFcmMessage } from "./fcm.js";
+
+const SERVER_TIMESTAMP = ["createdAt", "updatedAt"];
+const INVALID_FCM_STATUSES = new Set(["UNREGISTERED"]);
+const TERMINAL_NOTIFICATION_STATES = new Set([
+  "sent",
+  "no_tokens",
+  "completed",
+]);
+const NOTIFICATION_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
+function documentId(document) {
+  return document.name.split("/").pop();
+}
+
+function userPath(document) {
+  return getDocumentPath(document).split("/").slice(0, 2).join("/");
+}
+
+function userId(document) {
+  return userPath(document).split("/")[1] || "unknown";
+}
+
+function serializeError(error) {
+  return JSON.stringify({
+    name: error?.name || "Error",
+    message: error?.message || String(error),
+    stack: error?.stack || "",
+  });
+}
+
+async function getAccountInfo(env, accountId, accountCache) {
+  if (!accountCache.has(accountId)) {
+    accountCache.set(
+      accountId,
+      (async () => {
+        try {
+          const accountDocument = await getDocument(env, `users/${accountId}`);
+          const displayName = accountDocument?.data?.displayName?.trim();
+          return {
+            uid: accountId,
+            name: displayName || "(no display name)",
+          };
+        } catch (error) {
+          console.error(
+            `[ACCOUNT PROFILE ERROR] account=${accountId} Could not load display name:`,
+            error,
+          );
+          return { uid: accountId, name: "(profile unavailable)" };
+        }
+      })(),
+    );
+  }
+  return accountCache.get(accountId);
+}
+
+function logTable(title, columns, rows) {
+  console.log(`[TABLE] ${title} (${rows.length} rows)`);
+  if (rows.length === 0) {
+    console.log("(no rows)");
+    return;
+  }
+
+  const maxWidth = 48;
+  const sortedRows = columns.some(({ key }) => key === "account")
+    ? [...rows].sort((a, b) =>
+        `${a.account}\n${a.tracking}\n${a.device}`.localeCompare(
+          `${b.account}\n${b.tracking}\n${b.device}`,
+        ),
+      )
+    : rows;
+  const values = sortedRows.map((row) =>
+    columns.map(({ key }) => {
+      const value = String(row[key] ?? "-")
+        .replace(/[\r\n\t|]/g, " ")
+        .trim();
+      return value.length > maxWidth
+        ? `${value.slice(0, maxWidth - 3)}...`
+        : value;
+    }),
+  );
+  const widths = columns.map((column, index) =>
+    Math.min(
+      maxWidth,
+      Math.max(
+        column.label.length,
+        ...values.map((row) => row[index].length),
+      ),
+    ),
+  );
+  const border = `+${widths.map((width) => "-".repeat(width + 2)).join("+")}+`;
+  const formatRow = (cells) =>
+    `| ${cells.map((cell, index) => cell.padEnd(widths[index])).join(" | ")} |`;
+  console.log(border);
+  console.log(formatRow(columns.map(({ label }) => label)));
+  console.log(border);
+  values.forEach((row) => console.log(formatRow(row)));
+  console.log(border);
+}
+
+async function hasUserFcmTokens(env, user, tokenCache) {
+  if (!tokenCache.has(user)) {
+    tokenCache.set(
+      user,
+      listSubcollection(env, user, "fcmTokens").then(
+        (documents) => documents.length > 0,
+      ),
+    );
+  }
+  return tokenCache.get(user);
+}
+
+function hasPreviousStatus(data) {
+  return Boolean(
+    data.lastStatus ||
+      data.lastStatusCode ||
+      data.lastCheckpointTime ||
+      data.lastStatusAt,
+  );
+}
+
+function normalizeTimestamp(value) {
+  if (value == null) return "";
+  return value instanceof Date ? value.toISOString() : String(value);
+}
+
+function isCompletedStatus(status) {
+  const value = `${status.status} ${status.statusCode}`
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/đ/g, "d");
+  return (
+    value.includes("giao hang thanh cong") ||
+    value.includes("giao thanh cong") ||
+    /\bdelivered\b/.test(value)
+  );
+}
+
+async function getTrackingStatus(trackingNumber) {
+  const response = await fetchSPXResponse(trackingNumber);
+  const tracking = await parseSPXResponse(response, trackingNumber);
+  return getLatestSPXStatus(tracking);
+}
+
+async function getStatusEvent(user, trackingNumber, latest) {
+  const fingerprint = [
+    trackingNumber,
+    latest.statusCode,
+    latest.status,
+    latest.timestamp,
+  ].join("\n");
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(fingerprint),
+  );
+  const eventId = Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+  return {
+    id: eventId,
+    path: `${user}/notificationQueue/${eventId}`,
+  };
+}
+
+async function updateTrackingStatus(env, watchDocument, latest, tokenCache) {
+  const user = userPath(watchDocument);
+  const trackingNumber =
+    watchDocument.data.trackingNumber || documentId(watchDocument);
+  const event = await getStatusEvent(user, trackingNumber, latest);
+  const current = watchDocument.data;
+  const hadPreviousStatus = hasPreviousStatus(current);
+  const changed =
+    current.lastStatus !== latest.status ||
+    (current.lastStatusCode &&
+      String(current.lastStatusCode) !== latest.statusCode) ||
+    normalizeTimestamp(
+      current.lastCheckpointTime ?? current.lastStatusAt,
+    ) !== normalizeTimestamp(latest.timestamp);
+  const completed = isCompletedStatus(latest);
+  const shouldNotify = changed && hadPreviousStatus;
+  const needsBaseline =
+    !current.lastStatusCode ||
+    current.lastCheckpointTime === undefined ||
+    current.lastStatusAt === undefined;
+
+  if (!completed && !changed && !needsBaseline) {
+    return { outcome: "unchanged", notification: "no" };
+  }
+
+  const writes = [];
+  const eventDocument = shouldNotify
+    ? await getDocument(env, event.path)
+    : null;
+  const canQueueNotification =
+    shouldNotify &&
+    (eventDocument || (await hasUserFcmTokens(env, user, tokenCache)));
+
+  if (completed) {
+    if (eventDocument && shouldNotify) {
+      writes.push(
+        updateWrite(
+          eventDocument,
+          { completed: true },
+          ["completed"],
+          ["updatedAt"],
+        ),
+      );
+    } else if (canQueueNotification) {
+      writes.push(
+        createWrite(
+          firestoreDocumentName(env, event.path),
+          {
+            trackingNumber,
+            nickname: current.nickname || "",
+            status: latest.status,
+            statusCode: latest.statusCode,
+            timestamp: latest.timestamp,
+            state: "pending",
+            completed: true,
+          },
+          SERVER_TIMESTAMP,
+        ),
+      );
+    }
+    writes.push(deleteWrite(watchDocument));
+    await commitWrites(env, writes);
+    return {
+      outcome: "completed",
+      notification: !shouldNotify
+        ? "no"
+        : !canQueueNotification
+          ? "skipped_no_tokens"
+          : eventDocument
+            ? "deduplicated"
+            : "queued",
+    };
+  }
+
+  writes.push(
+    updateWrite(
+      watchDocument,
+      {
+        lastStatus: latest.status,
+        lastStatusCode: latest.statusCode,
+        lastCheckpointTime: latest.timestamp,
+        lastStatusAt: latest.timestamp,
+      },
+      [
+        "lastStatus",
+        "lastStatusCode",
+        "lastCheckpointTime",
+        "lastStatusAt",
+      ],
+      ["updatedAt"],
+    ),
+  );
+
+  if (canQueueNotification && !eventDocument) {
+    writes.push(
+      createWrite(
+        firestoreDocumentName(env, event.path),
+        {
+          trackingNumber,
+          nickname: current.nickname || "",
+          status: latest.status,
+          statusCode: latest.statusCode,
+          timestamp: latest.timestamp,
+          state: "pending",
+        },
+        SERVER_TIMESTAMP,
+      ),
+    );
+  }
+
+  await commitWrites(env, writes);
+  return {
+    outcome: changed && hadPreviousStatus ? "changed" : "initialized",
+    notification: !shouldNotify
+      ? "no"
+      : !canQueueNotification
+        ? "skipped_no_tokens"
+        : eventDocument
+          ? "deduplicated"
+          : "queued",
+  };
+}
+
+function getErrorStatus(errorBody) {
+  return (
+    errorBody?.error?.status ||
+    errorBody?.error?.details?.find((detail) => detail.errorCode)?.errorCode ||
+    ""
+  );
+}
+
+async function sendToToken(env, projectId, token, message) {
+  try {
+    const response = await sendFcmMessage(env, projectId, {
+      ...message,
+      token,
+    });
+    return {
+      token,
+      success: response.ok,
+      errorStatus: response.ok ? "" : getErrorStatus(response.result),
+      error: response.result?.error?.message || "",
+      messageId: response.result?.name || "",
+    };
+  } catch (error) {
+    return {
+      token,
+      success: false,
+      errorStatus: "REQUEST_ERROR",
+      error: error.message || String(error),
+    };
+  }
+}
+
+async function getUserTokens(env, user) {
+  const documents = await listSubcollection(env, user, "fcmTokens");
+  return documents
+    .map((document) => ({
+      token: document.data.token || documentId(document),
+      document,
+    }))
+    .filter(({ token }) => Boolean(token));
+}
+
+async function sendNotificationEvent(
+  env,
+  projectId,
+  event,
+  accountCache,
+  logRows,
+) {
+  let eventDocument = event;
+  let eventData = event.data;
+  const user = userPath(event);
+  const accountId = userId(event);
+  const account = await getAccountInfo(env, accountId, accountCache);
+  if (!user || !eventData.trackingNumber) {
+    throw new Error(`Notification event has invalid parent or tracking number: ${event.name}`);
+  }
+
+  let pendingTokens = eventData.pendingTokens;
+  if (!Array.isArray(pendingTokens)) {
+    const userTokens = await getUserTokens(env, user);
+    pendingTokens = [...new Set(userTokens.map(({ token }) => token))];
+    if (pendingTokens.length === 0) {
+      await commitWrites(env, [
+        updateWrite(
+          eventDocument,
+          { state: "no_tokens" },
+          ["state"],
+          ["updatedAt"],
+        ),
+      ]);
+      logRows.push({
+        account: account.name,
+        uid: account.uid,
+        tracking: eventData.trackingNumber,
+        status: eventData.status || "-",
+        device: "-",
+        result: "no tokens",
+        error: "-",
+      });
+      return;
+    }
+
+    const result = await commitWrites(env, [
+      updateWrite(
+        eventDocument,
+        { pendingTokens },
+        ["pendingTokens"],
+        ["updatedAt"],
+      ),
+    ]);
+    eventDocument = {
+      ...eventDocument,
+      updateTime: result.writeResults?.[0]?.updateTime,
+    };
+    eventData = { ...eventData, pendingTokens };
+  }
+
+  const pendingTokenSet = new Set(pendingTokens);
+  const tokenDocuments = await getUserTokens(env, user);
+  const tokenDocumentByValue = new Map(
+    tokenDocuments.map(({ token, document }) => [token, document]),
+  );
+  const deviceByToken = new Map(
+    tokenDocuments.map(({ token, document }) => [
+      token,
+      document.data.deviceId || "",
+    ]),
+  );
+  const message = {
+    notification: {
+      title: "SPX - Cập nhật đơn hàng",
+      body: `${eventData.nickname ? `${eventData.nickname} (${eventData.trackingNumber})` : eventData.trackingNumber}: ${eventData.status}`,
+    },
+    data: {
+      trackingNumber: String(eventData.trackingNumber),
+      userId: user.split("/")[1],
+      type: "SPX_STATUS_UPDATE",
+    },
+    webpush: {
+      notification: {
+        icon: "/app-icon.svg",
+        tag: `spx-${eventData.trackingNumber}`,
+      },
+    },
+  };
+
+  let acceptedCount = 0;
+  let retryCount = 0;
+  let invalidTokenCount = 0;
+  for (let offset = 0; offset < pendingTokens.length; offset += 50) {
+    const batchTokens = pendingTokens.slice(offset, offset + 50);
+    const results = await Promise.all(
+      batchTokens.map((token) => sendToToken(env, projectId, token, message)),
+    );
+    const writes = [];
+
+    results.forEach((result, index) => {
+      const deviceNumber = offset + index + 1;
+      if (result.success || INVALID_FCM_STATUSES.has(result.errorStatus)) {
+        pendingTokenSet.delete(result.token);
+      }
+      if (INVALID_FCM_STATUSES.has(result.errorStatus)) {
+        invalidTokenCount += 1;
+        const tokenDocument = tokenDocumentByValue.get(result.token);
+        if (tokenDocument) writes.push(deleteWrite(tokenDocument));
+        logRows.push({
+          account: account.name,
+          uid: account.uid,
+          tracking: eventData.trackingNumber,
+          status: eventData.status || "-",
+          device:
+            deviceByToken.get(result.token) || `${deviceNumber}/${pendingTokens.length}`,
+          result: "invalid token removed",
+          error: result.errorStatus,
+        });
+      } else if (result.success) {
+        acceptedCount += 1;
+        logRows.push({
+          account: account.name,
+          uid: account.uid,
+          tracking: eventData.trackingNumber,
+          status: eventData.status || "-",
+          device:
+            deviceByToken.get(result.token) || `${deviceNumber}/${pendingTokens.length}`,
+          result: "accepted by FCM",
+          error: result.messageId || "-",
+        });
+      } else if (!result.success) {
+        retryCount += 1;
+        logRows.push({
+          account: account.name,
+          uid: account.uid,
+          tracking: eventData.trackingNumber,
+          status: eventData.status || "-",
+          device:
+            deviceByToken.get(result.token) || `${deviceNumber}/${pendingTokens.length}`,
+          result: "retry",
+          error: result.errorStatus || result.error,
+        });
+      }
+    });
+
+    const updatedTokens = [...pendingTokenSet];
+    writes.push(
+      updateWrite(
+        eventDocument,
+        {
+          pendingTokens: updatedTokens,
+          state: updatedTokens.length === 0 ? "sent" : "pending",
+        },
+        ["pendingTokens", "state"],
+        ["updatedAt"],
+      ),
+    );
+    const committed = await commitWrites(env, writes);
+    eventDocument = {
+      ...eventDocument,
+      updateTime: committed.writeResults?.[writes.length - 1]?.updateTime,
+    };
+  }
+
+  logRows.push({
+    account: account.name,
+    uid: account.uid,
+    tracking: eventData.trackingNumber,
+    status: eventData.status || "-",
+    device: "TOTAL",
+    result: pendingTokenSet.size === 0 ? "accepted by FCM" : "pending retry",
+    error: `accepted=${acceptedCount}, retry=${retryCount}, invalid=${invalidTokenCount}, remaining=${pendingTokenSet.size}`,
+  });
+}
+
+async function sendPendingNotifications(env, projectId, accountCache) {
+  const events = await listCollectionGroup(env, "notificationQueue");
+  const pendingEvents = events.filter((event) => event.data.state === "pending");
+  console.log(
+    `[NOTIFICATION QUEUE] scanned=${events.length} pending=${pendingEvents.length}`,
+  );
+  let errors = 0;
+  const logRows = [];
+  for (const event of pendingEvents) {
+    try {
+      await sendNotificationEvent(env, projectId, event, accountCache, logRows);
+    } catch (error) {
+      errors += 1;
+      const account = await getAccountInfo(env, userId(event), accountCache);
+      console.error(
+        `[NOTIFICATION ERROR] account="${account.name}" uid=${account.uid} tracking=${event.data.trackingNumber || "unknown"} event=${documentId(event)} ${serializeError(error)}`,
+      );
+      logRows.push({
+        account: account.name,
+        uid: account.uid,
+        tracking: event.data.trackingNumber || "unknown",
+        status: event.data.status || "-",
+        device: "-",
+        result: "error",
+        error: error.message || String(error),
+      });
+    }
+  }
+  logTable(
+    "NOTIFICATION DELIVERY",
+    [
+      { key: "account", label: "ACCOUNT NAME" },
+      { key: "uid", label: "ACCOUNT UID" },
+      { key: "tracking", label: "TRACKING" },
+      { key: "status", label: "SPX STATUS" },
+      { key: "device", label: "DEVICE" },
+      { key: "result", label: "RESULT" },
+      { key: "error", label: "FCM MESSAGE / ERROR" },
+    ],
+    logRows,
+  );
+  return errors;
+}
+
+async function cleanupExpiredNotificationEvents(env) {
+  const events = await listCollectionGroup(env, "notificationQueue");
+  const cutoff = Date.now() - NOTIFICATION_RETENTION_MS;
+  const expiredEvents = events.filter((event) => {
+    if (
+      event.data.state === "pending" ||
+      !TERMINAL_NOTIFICATION_STATES.has(event.data.state)
+    ) {
+      return false;
+    }
+
+    const timestamp = Date.parse(event.data.updatedAt || event.data.createdAt);
+    return Number.isFinite(timestamp) && timestamp < cutoff;
+  });
+  let deletedCount = 0;
+
+  for (let offset = 0; offset < expiredEvents.length; offset += 500) {
+    const batch = expiredEvents.slice(offset, offset + 500);
+    await commitWrites(env, batch.map(deleteWrite));
+    deletedCount += batch.length;
+  }
+
+  console.log(
+    `Expired notification events deleted: ${deletedCount} (retention: 7 days)`,
+  );
+  return deletedCount;
+}
+
+async function sendTestNotifications(env, projectId, accountCache) {
+  const documents = await listCollectionGroup(env, "fcmTokens");
+  const targetsByToken = new Map();
+  documents.forEach((document) => {
+    const token = document.data.token || documentId(document);
+    if (!token) return;
+
+    if (!targetsByToken.has(token)) {
+      targetsByToken.set(token, {
+        token,
+        accountIds: new Set(),
+        deviceIds: new Set(),
+      });
+    }
+    const target = targetsByToken.get(token);
+    target.accountIds.add(userId(document));
+    if (document.data.deviceId) target.deviceIds.add(document.data.deviceId);
+  });
+  const targets = [...targetsByToken.values()];
+  let success = 0;
+  let failure = 0;
+  let errors = 0;
+  const logRows = [];
+
+  for (let offset = 0; offset < targets.length; offset += 50) {
+    const batchTargets = targets.slice(offset, offset + 50);
+    const results = await Promise.all(
+      batchTargets.map((target) =>
+        sendToToken(env, projectId, target.token, {
+          notification: {
+            title: "Space Tool - Thông báo thử",
+            body: "Thông báo push hoạt động bình thường.",
+          },
+          data: { type: "TEST_NOTIFICATION" },
+        }),
+      ),
+    );
+    for (let index = 0; index < results.length; index += 1) {
+      const result = results[index];
+      const target = batchTargets[index];
+      const accounts = await Promise.all(
+        [...target.accountIds].map((accountId) =>
+          getAccountInfo(env, accountId, accountCache),
+        ),
+      );
+      const accountNames = accounts.map((account) => account.name).join(", ");
+      const accountIds = accounts.map((account) => account.uid).join(", ");
+      const deviceIds =
+        [...target.deviceIds].join(", ") || `${offset + index + 1}/${targets.length}`;
+
+      if (result.success) {
+        success += 1;
+        logRows.push({
+          account: accountNames,
+          uid: accountIds,
+          tracking: "-",
+          status: "TEST",
+          device: deviceIds,
+          result: "accepted by FCM",
+          error: result.messageId || "-",
+        });
+      } else {
+        failure += 1;
+        errors += 1;
+        console.error(
+          `[TEST NOTIFICATION ERROR] accounts="${accountNames}" uids=${accountIds} devices=${deviceIds} ${JSON.stringify({ status: result.errorStatus || "FCM_ERROR", message: result.error })}`,
+        );
+        logRows.push({
+          account: accountNames,
+          uid: accountIds,
+          tracking: "-",
+          status: "TEST",
+          device: deviceIds,
+          result: "failed",
+          error: result.errorStatus || result.error,
+        });
+      }
+    }
+  }
+
+  if (targets.length === 0) {
+    logRows.push({
+      account: "-",
+      uid: "-",
+      tracking: "-",
+      status: "TEST",
+      device: "-",
+      result: "not sent",
+      error: "No registered FCM tokens",
+    });
+  }
+  logTable(
+    "TEST NOTIFICATION DELIVERY",
+    [
+      { key: "account", label: "ACCOUNT NAME" },
+      { key: "uid", label: "ACCOUNT UID" },
+      { key: "tracking", label: "TRACKING" },
+      { key: "status", label: "TYPE" },
+      { key: "device", label: "DEVICE" },
+      { key: "result", label: "RESULT" },
+      { key: "error", label: "FCM MESSAGE / ERROR" },
+    ],
+    logRows,
+  );
+  return { devices: targets.length, success, failure, errors };
+}
+
+async function runWithConcurrency(items, concurrency, callback) {
+  for (let offset = 0; offset < items.length; offset += concurrency) {
+    await Promise.all(items.slice(offset, offset + concurrency).map(callback));
+  }
+}
+
+export async function pollSPX(env, testNotification = false) {
+  const projectId = getFirebaseProjectId(env);
+  const accountCache = new Map();
+
+  if (testNotification) {
+    const summary = await sendTestNotifications(env, projectId, accountCache);
+    logTable(
+      "TEST NOTIFICATION SUMMARY",
+      [
+        { key: "devices", label: "DEVICES" },
+        { key: "success", label: "ACCEPTED BY FCM" },
+        { key: "failure", label: "FAILED" },
+        { key: "errors", label: "ERRORS" },
+      ],
+      [summary],
+    );
+    if (summary.errors > 0 || summary.success === 0) {
+      throw new Error("Test notification delivery failed");
+    }
+    return summary;
+  }
+
+  console.log("========== SPX POLLING START ==========");
+  const watchDocuments = await listCollectionGroup(env, "watchlist");
+  console.log(`Packages to check: ${watchDocuments.length}`);
+  const summary = {
+    changed: 0,
+    completed: 0,
+    initialized: 0,
+    unchanged: 0,
+    removed: 0,
+    errors: 0,
+  };
+  const trackingLogRows = [];
+  const tokenCache = new Map();
+
+  await runWithConcurrency(watchDocuments, 5, async (watchDocument) => {
+    const trackingNumber =
+      watchDocument.data.trackingNumber || documentId(watchDocument);
+    const accountId = userId(watchDocument);
+    if (accountId === "unknown" || !trackingNumber) {
+      console.error(
+        `[TRACKING ERROR] account=${accountId} tracking=${trackingNumber || "unknown"} reason=invalid_watchlist_document document=${watchDocument.name}`,
+      );
+      trackingLogRows.push({
+        account: "(unknown)",
+        uid: accountId,
+        tracking: trackingNumber || "unknown",
+        result: "error",
+        notification: "-",
+        previousStatus: "-",
+        previousCode: "-",
+        previousTime: "-",
+        latestStatus: "-",
+        latestCode: "-",
+        latestTime: "-",
+        detail: "Invalid watchlist document",
+      });
+      summary.errors += 1;
+      return;
+    }
+
+    try {
+      const latest = await getTrackingStatus(trackingNumber);
+      if (!latest) {
+        const account = await getAccountInfo(env, accountId, accountCache);
+        trackingLogRows.push({
+          account: account.name,
+          uid: account.uid,
+          tracking: trackingNumber,
+          result: "no events",
+          notification: "no",
+          previousStatus: watchDocument.data.lastStatus || "-",
+          previousCode: watchDocument.data.lastStatusCode || "-",
+          previousTime:
+            normalizeTimestamp(
+              watchDocument.data.lastCheckpointTime ??
+                watchDocument.data.lastStatusAt,
+            ) || "-",
+          latestStatus: "-",
+          latestCode: "-",
+          latestTime: "-",
+          detail: "-",
+        });
+        summary.unchanged += 1;
+        return;
+      }
+      const result = await updateTrackingStatus(
+        env,
+        watchDocument,
+        latest,
+        tokenCache,
+      );
+      summary[result.outcome] += 1;
+      const account = await getAccountInfo(env, accountId, accountCache);
+      const previousStatus = watchDocument.data.lastStatus || "unknown";
+      const previousCode = watchDocument.data.lastStatusCode || "unknown";
+      const previousTimestamp = normalizeTimestamp(
+        watchDocument.data.lastCheckpointTime ??
+          watchDocument.data.lastStatusAt,
+      ) || "unknown";
+      trackingLogRows.push({
+        account: account.name,
+        uid: account.uid,
+        tracking: trackingNumber,
+        result: result.outcome,
+        notification: result.notification,
+        previousStatus,
+        previousCode,
+        previousTime: previousTimestamp,
+        latestStatus: latest.status,
+        latestCode: latest.statusCode,
+        latestTime: normalizeTimestamp(latest.timestamp) || "-",
+        detail: "-",
+      });
+    } catch (error) {
+      summary.errors += 1;
+      const account = await getAccountInfo(env, accountId, accountCache);
+      console.error(
+        `[TRACKING ERROR] account="${account.name}" uid=${account.uid} tracking=${trackingNumber} ${serializeError(error)}`,
+      );
+      trackingLogRows.push({
+        account: account.name,
+        uid: account.uid,
+        tracking: trackingNumber,
+        result: "error",
+        notification: "-",
+        previousStatus: watchDocument.data.lastStatus || "-",
+        previousCode: watchDocument.data.lastStatusCode || "-",
+        previousTime: "-",
+        latestStatus: "-",
+        latestCode: "-",
+        latestTime: "-",
+        detail: error.message || String(error),
+      });
+    }
+  });
+
+  logTable(
+    "TRACKING STATUS",
+    [
+      { key: "account", label: "ACCOUNT NAME" },
+      { key: "uid", label: "ACCOUNT UID" },
+      { key: "tracking", label: "TRACKING" },
+      { key: "result", label: "RESULT" },
+      { key: "notification", label: "NOTIFY" },
+      { key: "previousStatus", label: "OLD STATUS" },
+      { key: "previousCode", label: "OLD CODE" },
+      { key: "previousTime", label: "OLD TIME" },
+      { key: "latestStatus", label: "NEW STATUS" },
+      { key: "latestCode", label: "NEW CODE" },
+      { key: "latestTime", label: "NEW TIME" },
+      { key: "detail", label: "DETAIL" },
+    ],
+    trackingLogRows,
+  );
+
+  summary.notificationErrors = await sendPendingNotifications(
+    env,
+    projectId,
+    accountCache,
+  );
+  await cleanupExpiredNotificationEvents(env);
+  console.log("========== SPX POLLING SUMMARY ==========");
+  console.log(JSON.stringify({ total: watchDocuments.length, ...summary }));
+  if (summary.errors > 0 || summary.notificationErrors > 0) {
+    throw new Error(
+      `${summary.errors} tracking checks and ${summary.notificationErrors} notification events failed`,
+    );
+  }
+  return { total: watchDocuments.length, ...summary };
+}
