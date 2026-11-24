@@ -448,8 +448,8 @@ async function sendNotificationEvent(
   );
   const message = {
     notification: {
-      title: "SPX - Cập nhật đơn hàng",
-      body: `${eventData.nickname ? `${eventData.nickname} (${eventData.trackingNumber})` : eventData.trackingNumber}: ${eventData.status}`,
+      title: "Cập nhật đơn hàng",
+      body: `Đơn hàng ${eventData.nickname ? `${eventData.nickname} (${eventData.trackingNumber})` : eventData.trackingNumber}: ${eventData.status}`,
     },
     data: {
       trackingNumber: String(eventData.trackingNumber),

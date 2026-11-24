@@ -159,11 +159,7 @@ export default function TrackingSummary({
                 )}
               </Space>
               <Button
-                style={{
-                  borderColor: "var(--app-accent-subtle)",
-                  borderRadius: "var(--app-radius-control)",
-                  color: "var(--app-accent-foreground)",
-                }}
+                className="tracker-settings-button"
                 icon={<ShareAltOutlined />}
                 onClick={handleShare}
                 aria-label="Chia sẻ thông tin vận đơn"

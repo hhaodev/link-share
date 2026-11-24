@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
-import { Alert, Modal, Space, Typography } from "antd";
+import { Alert, message, Modal, Space, Typography } from "antd";
 import { db } from "../../firebase";
 import { useUser, useUserContext } from "../../contexts/UserContext";
 import useUserCollection from "../../hooks/useUserCollection";
@@ -13,6 +13,14 @@ import TrackerLists from "./TrackerLists";
 import { useGlobal } from "../../contexts/GlobalContext";
 
 const VITE_INTERVAL_REFRESH_DETAIL = 60 * 1000; // 60 seconds
+
+function saveSearchHistory(userId, data) {
+  return setDoc(doc(db, "users", userId, "history", data.trackingNumber), {
+    trackingNumber: data.trackingNumber,
+    lastStatus: data.status,
+    searchedAt: serverTimestamp(),
+  });
+}
 
 export default function PackageTracker() {
   const user = useUser();
@@ -34,12 +42,18 @@ export default function PackageTracker() {
   );
 
   const trackingFormRef = useRef();
+  const userRef = useRef(user);
+  const pendingHistoryRef = useRef(new Map());
 
   const isFirstVisit = useRef(true);
   const [isPolling, setIsPolling] = useState(true);
+  const [isPageVisible, setIsPageVisible] = useState(
+    () => document.visibilityState === "visible",
+  );
+  const refreshOpenDetailRef = useRef(null);
 
   async function handleSearch(trackingNumber, options = {}) {
-    const { updateUrl = true, saveHistory = true } = options;
+    const { updateUrl = true } = options;
     const normalizedTrackingNumber = trackingNumber.trim().toUpperCase();
 
     if (updateUrl) {
@@ -53,18 +67,14 @@ export default function PackageTracker() {
     try {
       const data = await fetchTracking(normalizedTrackingNumber);
       setResult(data);
-      if (user && saveHistory) {
-        await setDoc(
-          doc(db, "users", user.uid, "history", data.trackingNumber),
-          {
-            trackingNumber: data.trackingNumber,
-            lastStatus: data.status,
-            searchedAt: serverTimestamp(),
-          },
-        );
+      const currentUser = userRef.current;
+      if (currentUser?.uid) {
+        await saveSearchHistory(currentUser.uid, data);
+      } else {
+        pendingHistoryRef.current.set(data.trackingNumber, data);
       }
     } catch (err) {
-      console.log("🚀 ~ handleSearch ~ err:", err);
+      console.error("Failed to search tracking or save history:", err);
       setSearchError(
         err.message || "Không thể tra cứu. Kiểm tra lại mã vận đơn.",
       );
@@ -74,11 +84,40 @@ export default function PackageTracker() {
   }
 
   useEffect(() => {
+    userRef.current = user;
+    if (!user?.uid || pendingHistoryRef.current.size === 0) {
+      return undefined;
+    }
+
+    let active = true;
+    async function flushPendingHistory() {
+      while (active && pendingHistoryRef.current.size > 0) {
+        const [trackingNumber, data] =
+          pendingHistoryRef.current.entries().next().value;
+        try {
+          await saveSearchHistory(user.uid, data);
+          if (pendingHistoryRef.current.get(trackingNumber) === data) {
+            pendingHistoryRef.current.delete(trackingNumber);
+          }
+        } catch (error) {
+          console.error("Failed to save pending tracking history:", error);
+          message.error("Không thể lưu lịch sử tra cứu.");
+          return;
+        }
+      }
+    }
+
+    flushPendingHistory();
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  useEffect(() => {
     const syncTrackingFromUrl = () => {
       if (trackingNumber) {
         handleSearch(trackingNumber, {
           updateUrl: false,
-          saveHistory: false,
         });
       } else {
         setActiveView("list");
@@ -91,6 +130,8 @@ export default function PackageTracker() {
   }, []);
 
   async function refreshOpenDetail(trackingNumber) {
+    if (document.visibilityState !== "visible") return;
+
     try {
       const data = await fetchTracking(trackingNumber);
       setResult((current) =>
@@ -103,6 +144,8 @@ export default function PackageTracker() {
   }
 
   async function refreshwatchList() {
+    if (document.visibilityState !== "visible") return;
+
     if (!user || watchedItems.length === 0) {
       setIsPolling(false);
       return;
@@ -164,17 +207,48 @@ export default function PackageTracker() {
   }
 
   useEffect(() => {
-    if (activeView !== "detail" || !result.trackingNumber) return undefined;
+    refreshOpenDetailRef.current =
+      activeView === "detail" && result.trackingNumber
+        ? () => refreshOpenDetail(result.trackingNumber)
+        : null;
+  });
+
+  useEffect(() => {
+    let wasHidden = document.visibilityState !== "visible";
+    const handleVisibilityChange = () => {
+      const visible = document.visibilityState === "visible";
+      setIsPageVisible(visible);
+      if (!visible) {
+        wasHidden = true;
+      } else if (wasHidden) {
+        wasHidden = false;
+        refreshOpenDetailRef.current?.();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, []);
+
+  useEffect(() => {
+    if (
+      !isPageVisible ||
+      activeView !== "detail" ||
+      !result.trackingNumber
+    ) {
+      return undefined;
+    }
 
     const intervalId = window.setInterval(() => {
       refreshOpenDetail(result.trackingNumber);
     }, VITE_INTERVAL_REFRESH_DETAIL);
 
     return () => window.clearInterval(intervalId);
-  }, [activeView, result.trackingNumber]);
+  }, [isPageVisible, activeView, result.trackingNumber]);
 
   useEffect(() => {
-    if (!user) return undefined;
+    if (!isPageVisible || !user) return undefined;
 
     refreshwatchList();
     const intervalId = window.setInterval(
@@ -182,7 +256,11 @@ export default function PackageTracker() {
       VITE_INTERVAL_REFRESH_DETAIL,
     );
     return () => window.clearInterval(intervalId);
-  }, [user?.uid, watchedItems.map((item) => item.trackingNumber).join(",")]);
+  }, [
+    isPageVisible,
+    user?.uid,
+    watchedItems.map((item) => item.trackingNumber).join(","),
+  ]);
 
   function handleWatchChange(trackingNumber, watching) {
     watchList.updateItems((items) => {

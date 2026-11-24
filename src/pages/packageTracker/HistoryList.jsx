@@ -22,12 +22,15 @@ function HistoryItem({ item, watchedItems, onSearch, onDelete }) {
         <Space vertical>
           <Button
             type="text"
-            size="small"
             danger
             icon={<DeleteOutlined />}
             loading={deleting}
             onClick={handleDelete}
             aria-label="Xóa khỏi lịch sử"
+            style={{
+              background: "#2b2b2b34",
+              flexShrink: 0,
+            }}
           />
         </Space>
       }

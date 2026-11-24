@@ -47,6 +47,9 @@ function WatchItem({ item, onSearch, onRemove }) {
             loading={deleting}
             onClick={handleDelete}
             aria-label="Dừng theo dõi"
+            style={{
+              background: "#2b2b2b34",
+            }}
           />
         </Space>
       }
