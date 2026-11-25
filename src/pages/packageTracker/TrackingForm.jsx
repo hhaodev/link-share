@@ -1,11 +1,5 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  forwardRef,
-  useImperativeHandle,
-} from "react";
 import { Button, Input, message, Modal, Space, Typography } from "antd";
+import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 
 function findTrackingNumber(text) {
   return text.match(/\bSPX[A-Z0-9]{8,}\b/i)?.[0].toUpperCase() ?? "";
@@ -54,11 +48,6 @@ const TrackingForm = forwardRef(function TrackingForm(
 
       lastAutoDetectedRef.current = trackingNumber;
       setClipboardTrackingNumber(trackingNumber);
-    } catch (error) {
-      console.error("Failed to read clipboard:", error);
-      message.error(
-        "Không thể đọc clipboard. Hãy cấp quyền hoặc dán mã trực tiếp vào ô tra cứu.",
-      );
     } finally {
       setReadingClipboard(false);
     }
