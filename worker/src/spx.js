@@ -214,6 +214,30 @@ async function getStatusEvent(user, trackingNumber, latest) {
   };
 }
 
+async function getRecoveryStatusEvent(user, event) {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(`payload-mismatch\n${event.id}`),
+  );
+  const eventId = Array.from(new Uint8Array(digest), (byte) =>
+    byte.toString(16).padStart(2, "0"),
+  ).join("");
+  return {
+    id: eventId,
+    path: `${user}/notificationQueue/${eventId}`,
+  };
+}
+
+export function matchesStatusEvent(eventDocument, trackingNumber, latest) {
+  const data = eventDocument?.data || {};
+  return (
+    String(data.trackingNumber ?? "") === String(trackingNumber ?? "") &&
+    String(data.statusCode ?? "") === String(latest.statusCode ?? "") &&
+    String(data.status ?? "") === String(latest.status ?? "") &&
+    normalizeTimestamp(data.timestamp) === normalizeTimestamp(latest.timestamp)
+  );
+}
+
 async function updateTrackingStatus(
   env,
   watchDocument,
@@ -224,7 +248,7 @@ async function updateTrackingStatus(
   const user = userPath(watchDocument);
   const trackingNumber =
     watchDocument.data.trackingNumber || documentId(watchDocument);
-  const event = await getStatusEvent(user, trackingNumber, latest);
+  let event = await getStatusEvent(user, trackingNumber, latest);
   const current = watchDocument.data;
   const hadPreviousStatus = hasPreviousStatus(current);
   const changed =
@@ -247,9 +271,35 @@ async function updateTrackingStatus(
   }
 
   const writes = [];
-  const eventDocument = shouldNotify
+  let eventDocument = shouldNotify
     ? await getDocument(env, event.path)
     : null;
+  if (
+    eventDocument &&
+    !matchesStatusEvent(eventDocument, trackingNumber, latest)
+  ) {
+    console.warn(
+      `[NOTIFICATION EVENT MISMATCH] event=${event.id} tracking=${trackingNumber} expected=${JSON.stringify({
+        status: latest.status,
+        statusCode: latest.statusCode,
+        timestamp: latest.timestamp,
+      })} stored=${JSON.stringify({
+        status: eventDocument.data.status,
+        statusCode: eventDocument.data.statusCode,
+        timestamp: eventDocument.data.timestamp,
+      })}; using recovery event ID`,
+    );
+    event = await getRecoveryStatusEvent(user, event);
+    eventDocument = await getDocument(env, event.path);
+    if (
+      eventDocument &&
+      !matchesStatusEvent(eventDocument, trackingNumber, latest)
+    ) {
+      throw new Error(
+        `Recovery notification event has mismatched payload: ${event.path}`,
+      );
+    }
+  }
   const canQueueNotification =
     shouldNotify &&
     (eventDocument || (await hasUserFcmTokens(env, user, tokenCache)));
