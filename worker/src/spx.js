@@ -877,32 +877,45 @@ export async function pollSPX(env, testNotification = false) {
           summary.errors += 1;
           return;
         }
-        if (watchDocument.data.completed === true) {
-          summary.completed += 1;
-          const account = await getAccountInfo(env, accountId, accountCache);
-          addLogRow(trackingLogRows, {
-            account: account.name,
-            uid: accountId,
-            tracking: trackingNumber,
-            nickname: watchDocument.data.nickname || "-",
-            result: "completed",
-            notification: "no",
-            previousStatus: watchDocument.data.lastStatus || "-",
-            previousCode: watchDocument.data.lastStatusCode || "-",
-            previousTime:
-              normalizeTimestamp(
-                watchDocument.data.lastCheckpointTime ??
-                  watchDocument.data.lastStatusAt,
-              ) || "-",
-            latestStatus: "-",
-            latestCode: "-",
-            latestTime: "-",
-            detail: "Completed package; polling skipped",
-          });
-          return;
-        }
-
         try {
+          if (watchDocument.data.completed === true) {
+            const deleteWhenDone = await shouldDeleteCompletedWatch(
+              env,
+              userPath(watchDocument),
+              settingsCache,
+            );
+            if (deleteWhenDone) {
+              await commitWrites(env, [deleteWrite(watchDocument)]);
+              summary.removed += 1;
+            } else {
+              summary.completed += 1;
+            }
+
+            const account = await getAccountInfo(env, accountId, accountCache);
+            addLogRow(trackingLogRows, {
+              account: account.name,
+              uid: accountId,
+              tracking: trackingNumber,
+              nickname: watchDocument.data.nickname || "-",
+              result: deleteWhenDone ? "removed" : "completed",
+              notification: "no",
+              previousStatus: watchDocument.data.lastStatus || "-",
+              previousCode: watchDocument.data.lastStatusCode || "-",
+              previousTime:
+                normalizeTimestamp(
+                  watchDocument.data.lastCheckpointTime ??
+                    watchDocument.data.lastStatusAt,
+                ) || "-",
+              latestStatus: "-",
+              latestCode: "-",
+              latestTime: "-",
+              detail: deleteWhenDone
+                ? "Completed package; removed from watchlist"
+                : "Completed package; polling skipped",
+            });
+            return;
+          }
+
           const latest = await getTrackingStatus(trackingNumber);
           if (!latest) {
             const account = await getAccountInfo(env, accountId, accountCache);

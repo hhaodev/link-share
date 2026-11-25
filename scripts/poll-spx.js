@@ -171,12 +171,23 @@ async function pollSPX() {
           return;
         }
 
-        if (data.completed === true) {
-          summary.completed += 1;
-          return;
-        }
-
         try {
+          if (data.completed === true) {
+            const settingsSnapshot = await userRef
+              .collection("accountSettings")
+              .doc("tracking")
+              .get();
+            const deleteWhenDone =
+              settingsSnapshot.get("deleteWhenDone") !== false;
+            if (deleteWhenDone) {
+              await watchDoc.ref.delete();
+              summary.removed += 1;
+            } else {
+              summary.completed += 1;
+            }
+            return;
+          }
+
           const latest = await getSPXTracking(trackingNumber);
           if (!latest) {
             console.log(`No tracking events yet: ${trackingNumber}`);
