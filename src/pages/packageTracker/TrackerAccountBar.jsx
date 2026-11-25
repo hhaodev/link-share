@@ -1,4 +1,9 @@
-import { signOut } from "firebase/auth";
+import {
+  BellOutlined,
+  DownloadOutlined,
+  LogoutOutlined,
+  SettingOutlined
+} from "@ant-design/icons";
 import {
   Alert,
   Avatar,
@@ -6,23 +11,19 @@ import {
   Modal,
   Space,
   Spin,
+  Switch,
   Tag,
   Typography,
   message,
 } from "antd";
-import {
-  BellFilled,
-  BellOutlined,
-  DownloadOutlined,
-  LogoutOutlined,
-  SettingOutlined,
-} from "@ant-design/icons";
-import { useState } from "react";
-import { auth } from "../../firebase";
-import { useUser, useUserContext } from "../../contexts/UserContext";
-import { disableNotification } from "../../firebase/notification";
+import { signOut } from "firebase/auth";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { useEffect, useState } from "react";
 import NotificationSettings from "../../components/notificationSetting";
 import { useGlobal } from "../../contexts/GlobalContext";
+import { useUser, useUserContext } from "../../contexts/UserContext";
+import { auth, db } from "../../firebase";
+import { disableNotification } from "../../firebase/notification";
 
 export default function TrackerAccountBar({ onSignIn }) {
   const user = useUser();
@@ -37,6 +38,64 @@ export default function TrackerAccountBar({ onSignIn }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [showInstallInstructions, setShowInstallInstructions] = useState(false);
+  const [trackingSettings, setTrackingSettings] = useState(null);
+  const [savingTrackingSettings, setSavingTrackingSettings] = useState(false);
+
+  useEffect(() => {
+    if (!user?.uid) {
+      return undefined;
+    }
+
+    const userId = user.uid;
+    return onSnapshot(
+      doc(db, "users", userId, "accountSettings", "tracking"),
+      (snapshot) => {
+        const settings = snapshot.data();
+        const deleteWhenDone = settings?.deleteWhenDone !== false;
+        setTrackingSettings({
+          userId,
+          deleteWhenDone,
+          error: null,
+        });
+
+        if (typeof settings?.deleteWhenDone !== "boolean") {
+          setDoc(
+            doc(db, "users", userId, "accountSettings", "tracking"),
+            { deleteWhenDone: true },
+            { merge: true },
+          ).catch((error) => {
+            console.error("Failed to initialize tracking settings:", error);
+            setTrackingSettings({
+              userId,
+              deleteWhenDone: true,
+              error,
+            });
+          });
+        }
+      },
+      (error) => {
+        console.error("Failed to load tracking settings:", error);
+        setTrackingSettings({ userId, deleteWhenDone: false, error });
+      },
+    );
+  }, [user?.uid]);
+
+  async function handleDeleteWhenDoneChange(checked) {
+    setSavingTrackingSettings(true);
+    try {
+      await setDoc(
+        doc(db, "users", user.uid, "accountSettings", "tracking"),
+        { deleteWhenDone: checked },
+        { merge: true },
+      );
+      message.success(checked ? "Bật thành công" : "Tắt thành công");
+    } catch (error) {
+      console.error("Failed to update tracking settings:", error);
+      message.error("Không thể lưu cài đặt.");
+    } finally {
+      setSavingTrackingSettings(false);
+    }
+  }
 
   async function handleInstallApp() {
     if (!installPrompt) {
@@ -98,10 +157,8 @@ export default function TrackerAccountBar({ onSignIn }) {
                   ) : (
                     <Spin size="small" />
                   )
-                ) : !notificationData?.enabled ? (
-                  <BellOutlined />
                 ) : (
-                  <BellFilled />
+                  notificationData?.enabled && <BellOutlined />
                 )}
               </div>
               <Typography.Text type="secondary">{user.email}</Typography.Text>
@@ -120,7 +177,7 @@ export default function TrackerAccountBar({ onSignIn }) {
                 Lưu đơn và nhận thông báo
               </Typography.Text>
               <Typography.Text type="secondary">
-                Đăng nhập để quản lý danh sách theo dõi.
+                Đăng nhập để sử nhận thông báo.
               </Typography.Text>
             </div>
             <Button className="tracker-login-button" onClick={onSignIn}>
@@ -150,7 +207,7 @@ export default function TrackerAccountBar({ onSignIn }) {
                 marginBottom: 8,
               }}
             >
-              <Typography.Text strong>Thông báo đơn hàng</Typography.Text>
+              <Typography.Text strong>Thông báo</Typography.Text>
               <NotificationSettings
                 enabled={notificationData?.enabled}
                 onChange={setNotificationsEnabled}
@@ -160,16 +217,44 @@ export default function TrackerAccountBar({ onSignIn }) {
             <Typography.Paragraph type="secondary">
               Nhận thông báo khi trạng thái đơn hàng được cập nhật.
             </Typography.Paragraph>
-            {notificationData?.enabled === null &&
-              (notificationData?.error ? (
-                <Alert
-                  type="error"
-                  showIcon
-                  message="Không tải được trạng thái thông báo."
-                />
-              ) : (
-                <Spin size="small" />
-              ))}
+            <Space
+              style={{
+                width: "100%",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 8,
+              }}
+            >
+              <Typography.Text strong>
+                Ngưng theo dõi khi hoàn tất
+              </Typography.Text>
+              <Switch
+                checked={
+                  trackingSettings?.userId === user?.uid &&
+                  trackingSettings?.deleteWhenDone
+                }
+                loading={
+                  savingTrackingSettings ||
+                  trackingSettings?.userId !== user?.uid
+                }
+                disabled={Boolean(trackingSettings?.error)}
+                checkedChildren="Bật"
+                unCheckedChildren="Tắt"
+                aria-label="Cài đặt ngưng theo dõi khi hoàn tất đơn hàng"
+                onChange={handleDeleteWhenDoneChange}
+              />
+            </Space>
+            <Typography.Paragraph type="secondary">
+              Tự động bỏ đơn khỏi danh sách theo dõi khi đơn hàng giao thành
+              công.
+            </Typography.Paragraph>
+            {trackingSettings?.userId === user?.uid &&
+              trackingSettings?.error && (
+                <Typography.Text type="danger">
+                  Không thể tải cài đặt theo dõi.
+                </Typography.Text>
+              )}
           </div>
           {!isAppInstalled && (
             <div>

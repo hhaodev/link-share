@@ -24,15 +24,27 @@ function normalizeTimestamp(value) {
 }
 
 function isCompletedStatus(status) {
-  const value = `${status.status} ${status.statusCode}`.toLowerCase();
+  const value =
+    `${status.status || ""} ${status.statusCode || ""}`.toLowerCase();
+
   return (
     value.includes("giao hàng thành công") ||
     value.includes("giao thành công") ||
-    /\bdelivered\b/.test(value)
+    /\bdelivered\b/.test(value) ||
+    value.includes("hoàn hàng thành công") ||
+    value.includes("chuyển hoàn thành công") ||
+    /\b(returned|return completed)\b/.test(value) ||
+    value.includes("đã hủy") ||
+    value.includes("đơn hàng đã hủy") ||
+    /\b(cancelled|canceled)\b/.test(value)
   );
 }
 
 async function updateTrackingStatus(watchRef, userRef, trackingNumber, latest) {
+  const settingsSnapshot = isCompletedStatus(latest)
+    ? await userRef.collection("accountSettings").doc("tracking").get()
+    : null;
+  const deleteWhenDone = settingsSnapshot?.get("deleteWhenDone") !== false;
   const statusRef = userRef
     .collection("notificationQueue")
     .doc(getStatusEventId(trackingNumber, latest));
@@ -81,7 +93,18 @@ async function updateTrackingStatus(watchRef, userRef, trackingNumber, latest) {
           createdAt: FieldValue.serverTimestamp(),
         });
       }
-      transaction.delete(watchRef);
+      if (deleteWhenDone) {
+        transaction.delete(watchRef);
+      } else {
+        transaction.update(watchRef, {
+          lastStatus: latest.status,
+          lastStatusCode: latest.statusCode,
+          lastCheckpointTime: latest.timestamp,
+          lastStatusAt: latest.timestamp,
+          completed: true,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
       return "completed";
     }
 
@@ -145,6 +168,11 @@ async function pollSPX() {
         if (!userRef || !trackingNumber) {
           console.error(`Invalid watchlist document: ${watchDoc.ref.path}`);
           summary.errors += 1;
+          return;
+        }
+
+        if (data.completed === true) {
+          summary.completed += 1;
           return;
         }
 

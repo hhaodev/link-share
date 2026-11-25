@@ -111,10 +111,7 @@ function logTable(title, columns, rows) {
   const widths = columns.map((column, index) =>
     Math.min(
       maxWidth,
-      Math.max(
-        column.label.length,
-        ...values.map((row) => row[index].length),
-      ),
+      Math.max(column.label.length, ...values.map((row) => row[index].length)),
     ),
   );
   const border = `+${widths.map((width) => "-".repeat(width + 2)).join("+")}+`;
@@ -139,12 +136,24 @@ async function hasUserFcmTokens(env, user, tokenCache) {
   return tokenCache.get(user);
 }
 
+async function shouldDeleteCompletedWatch(env, user, settingsCache) {
+  if (!settingsCache.has(user)) {
+    settingsCache.set(
+      user,
+      getDocument(env, `${user}/accountSettings/tracking`).then(
+        (document) => document?.data?.deleteWhenDone !== false,
+      ),
+    );
+  }
+  return settingsCache.get(user);
+}
+
 function hasPreviousStatus(data) {
   return Boolean(
     data.lastStatus ||
-      data.lastStatusCode ||
-      data.lastCheckpointTime ||
-      data.lastStatusAt,
+    data.lastStatusCode ||
+    data.lastCheckpointTime ||
+    data.lastStatusAt,
   );
 }
 
@@ -205,7 +214,13 @@ async function getStatusEvent(user, trackingNumber, latest) {
   };
 }
 
-async function updateTrackingStatus(env, watchDocument, latest, tokenCache) {
+async function updateTrackingStatus(
+  env,
+  watchDocument,
+  latest,
+  tokenCache,
+  settingsCache,
+) {
   const user = userPath(watchDocument);
   const trackingNumber =
     watchDocument.data.trackingNumber || documentId(watchDocument);
@@ -216,10 +231,11 @@ async function updateTrackingStatus(env, watchDocument, latest, tokenCache) {
     current.lastStatus !== latest.status ||
     (current.lastStatusCode &&
       String(current.lastStatusCode) !== latest.statusCode) ||
-    normalizeTimestamp(
-      current.lastCheckpointTime ?? current.lastStatusAt,
-    ) !== normalizeTimestamp(latest.timestamp);
+    normalizeTimestamp(current.lastCheckpointTime ?? current.lastStatusAt) !==
+      normalizeTimestamp(latest.timestamp);
   const completed = isCompletedStatus(latest);
+  const deleteWhenDone =
+    completed && (await shouldDeleteCompletedWatch(env, user, settingsCache));
   const shouldNotify = changed && hadPreviousStatus;
   const needsBaseline =
     !current.lastStatusCode ||
@@ -231,31 +247,35 @@ async function updateTrackingStatus(env, watchDocument, latest, tokenCache) {
   }
 
   const writes = [];
-  const eventDocument = shouldNotify ? await getDocument(env, event.path) : null;
+  const eventDocument = shouldNotify
+    ? await getDocument(env, event.path)
+    : null;
   const canQueueNotification =
     shouldNotify &&
     (eventDocument || (await hasUserFcmTokens(env, user, tokenCache)));
 
   if (completed) {
     writes.push(
-      updateWrite(
-        watchDocument,
-        {
-          lastStatus: latest.status,
-          lastStatusCode: latest.statusCode,
-          lastCheckpointTime: latest.timestamp,
-          lastStatusAt: latest.timestamp,
-          completed: true,
-        },
-        [
-          "lastStatus",
-          "lastStatusCode",
-          "lastCheckpointTime",
-          "lastStatusAt",
-          "completed",
-        ],
-        ["updatedAt"],
-      ),
+      deleteWhenDone
+        ? deleteWrite(watchDocument)
+        : updateWrite(
+            watchDocument,
+            {
+              lastStatus: latest.status,
+              lastStatusCode: latest.statusCode,
+              lastCheckpointTime: latest.timestamp,
+              lastStatusAt: latest.timestamp,
+              completed: true,
+            },
+            [
+              "lastStatus",
+              "lastStatusCode",
+              "lastCheckpointTime",
+              "lastStatusAt",
+              "completed",
+            ],
+            ["updatedAt"],
+          ),
     );
 
     if (shouldNotify && eventDocument) {
@@ -309,12 +329,7 @@ async function updateTrackingStatus(env, watchDocument, latest, tokenCache) {
         lastCheckpointTime: latest.timestamp,
         lastStatusAt: latest.timestamp,
       },
-      [
-        "lastStatus",
-        "lastStatusCode",
-        "lastCheckpointTime",
-        "lastStatusAt",
-      ],
+      ["lastStatus", "lastStatusCode", "lastCheckpointTime", "lastStatusAt"],
       ["updatedAt"],
     ),
   );
@@ -405,7 +420,9 @@ async function sendNotificationEvent(
   const accountId = userId(event);
   const account = await getAccountInfo(env, accountId, accountCache);
   if (!user || !eventData.trackingNumber) {
-    throw new Error(`Notification event has invalid parent or tracking number: ${event.name}`);
+    throw new Error(
+      `Notification event has invalid parent or tracking number: ${event.name}`,
+    );
   }
 
   let pendingTokens = eventData.pendingTokens;
@@ -502,7 +519,8 @@ async function sendNotificationEvent(
           tracking: eventData.trackingNumber,
           status: eventData.status || "-",
           device:
-            deviceByToken.get(result.token) || `${deviceNumber}/${pendingTokens.length}`,
+            deviceByToken.get(result.token) ||
+            `${deviceNumber}/${pendingTokens.length}`,
           result: "invalid token removed",
           error: result.errorStatus,
         });
@@ -514,7 +532,8 @@ async function sendNotificationEvent(
           tracking: eventData.trackingNumber,
           status: eventData.status || "-",
           device:
-            deviceByToken.get(result.token) || `${deviceNumber}/${pendingTokens.length}`,
+            deviceByToken.get(result.token) ||
+            `${deviceNumber}/${pendingTokens.length}`,
           result: "accepted by FCM",
           error: result.messageId || "-",
         });
@@ -526,7 +545,8 @@ async function sendNotificationEvent(
           tracking: eventData.trackingNumber,
           status: eventData.status || "-",
           device:
-            deviceByToken.get(result.token) || `${deviceNumber}/${pendingTokens.length}`,
+            deviceByToken.get(result.token) ||
+            `${deviceNumber}/${pendingTokens.length}`,
           result: "retry",
           error: result.errorStatus || result.error,
         });
@@ -572,7 +592,9 @@ async function sendNotificationEvent(
 
 async function sendPendingNotifications(env, projectId, accountCache) {
   const events = await listCollectionGroup(env, "notificationQueue");
-  const pendingEvents = events.filter((event) => event.data.state === "pending");
+  const pendingEvents = events.filter(
+    (event) => event.data.state === "pending",
+  );
   console.log(
     `[NOTIFICATION QUEUE] scanned=${events.length} pending=${pendingEvents.length}`,
   );
@@ -695,7 +717,8 @@ async function sendTestNotifications(env, projectId, accountCache) {
       const accountNames = accounts.map((account) => account.name).join(", ");
       const accountIds = accounts.map((account) => account.uid).join(", ");
       const deviceIds =
-        [...target.deviceIds].join(", ") || `${offset + index + 1}/${targets.length}`;
+        [...target.deviceIds].join(", ") ||
+        `${offset + index + 1}/${targets.length}`;
 
       if (result.success) {
         success += 1;
@@ -826,6 +849,7 @@ export async function pollSPX(env, testNotification = false) {
       };
       const trackingLogRows = [];
       const tokenCache = new Map();
+      const settingsCache = new Map();
 
       await runWithConcurrency(watchDocuments, 5, async (watchDocument) => {
         const trackingNumber =
@@ -909,15 +933,17 @@ export async function pollSPX(env, testNotification = false) {
             watchDocument,
             latest,
             tokenCache,
+            settingsCache,
           );
           summary[result.outcome] += 1;
           const account = await getAccountInfo(env, accountId, accountCache);
           const previousStatus = watchDocument.data.lastStatus || "unknown";
           const previousCode = watchDocument.data.lastStatusCode || "unknown";
-          const previousTimestamp = normalizeTimestamp(
-            watchDocument.data.lastCheckpointTime ??
-              watchDocument.data.lastStatusAt,
-          ) || "unknown";
+          const previousTimestamp =
+            normalizeTimestamp(
+              watchDocument.data.lastCheckpointTime ??
+                watchDocument.data.lastStatusAt,
+            ) || "unknown";
           addLogRow(trackingLogRows, {
             account: account.name,
             uid: account.uid,
@@ -991,8 +1017,7 @@ export async function pollSPX(env, testNotification = false) {
         pending: notificationResult.pending,
         errors: notificationResult.errors,
       });
-      const deletedNotifications =
-        await cleanupExpiredNotificationEvents(env);
+      const deletedNotifications = await cleanupExpiredNotificationEvents(env);
       addRunEvent(report, "info", "Expired notification cleanup finished", {
         deleted: deletedNotifications,
         retentionDays: 7,
