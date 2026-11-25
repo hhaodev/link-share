@@ -167,9 +167,22 @@ function isCompletedStatus(status) {
 }
 
 async function getTrackingStatus(trackingNumber) {
-  const response = await fetchSPXResponse(trackingNumber);
-  const tracking = await parseSPXResponse(response, trackingNumber);
-  return getLatestSPXStatus(tracking);
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      const response = await fetchSPXResponse(trackingNumber);
+      const tracking = await parseSPXResponse(response, trackingNumber);
+      return getLatestSPXStatus(tracking);
+    } catch (error) {
+      if (error?.name !== "TimeoutError" || attempt >= 1) {
+        throw error;
+      }
+
+      console.warn(
+        `[TRACKING RETRY] tracking=${trackingNumber} attempt=2 reason=timeout`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
 }
 
 async function getStatusEvent(user, trackingNumber, latest) {
