@@ -163,15 +163,19 @@ function normalizeTimestamp(value) {
 }
 
 function isCompletedStatus(status) {
-  const value = `${status.status} ${status.statusCode}`
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .replace(/đ/g, "d");
+  const value =
+    `${status.status || ""} ${status.statusCode || ""}`.toLowerCase();
+
   return (
-    value.includes("giao hang thanh cong") ||
-    value.includes("giao thanh cong") ||
-    /\bdelivered\b/.test(value)
+    value.includes("giao hàng thành công") ||
+    value.includes("giao thành công") ||
+    /\bdelivered\b/.test(value) ||
+    value.includes("hoàn hàng thành công") ||
+    value.includes("chuyển hoàn thành công") ||
+    /\b(returned|return completed)\b/.test(value) ||
+    value.includes("đã hủy") ||
+    value.includes("đơn hàng đã hủy") ||
+    /\b(cancelled|canceled)\b/.test(value)
   );
 }
 
@@ -271,19 +275,19 @@ async function updateTrackingStatus(
   }
 
   const writes = [];
-  let eventDocument = shouldNotify
-    ? await getDocument(env, event.path)
-    : null;
+  let eventDocument = shouldNotify ? await getDocument(env, event.path) : null;
   if (
     eventDocument &&
     !matchesStatusEvent(eventDocument, trackingNumber, latest)
   ) {
     console.warn(
-      `[NOTIFICATION EVENT MISMATCH] event=${event.id} tracking=${trackingNumber} expected=${JSON.stringify({
-        status: latest.status,
-        statusCode: latest.statusCode,
-        timestamp: latest.timestamp,
-      })} stored=${JSON.stringify({
+      `[NOTIFICATION EVENT MISMATCH] event=${event.id} tracking=${trackingNumber} expected=${JSON.stringify(
+        {
+          status: latest.status,
+          statusCode: latest.statusCode,
+          timestamp: latest.timestamp,
+        },
+      )} stored=${JSON.stringify({
         status: eventDocument.data.status,
         statusCode: eventDocument.data.statusCode,
         timestamp: eventDocument.data.timestamp,
