@@ -59,7 +59,7 @@ export default function App() {
 
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isAppInstalled, setIsAppInstalled] = useState(isStandaloneApp);
-  const [isLoadingVisible, setIsLoadingVisible] = useState(false);
+  const [isLoadingVisible, setIsLoadingVisible] = useState(true);
   const [isLoadingExiting, setIsLoadingExiting] = useState(false);
   const [hasInitialContentLoaded, setHasInitialContentLoaded] = useState(false);
   const hasInitializedRef = useRef(false);
