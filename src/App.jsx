@@ -1,5 +1,13 @@
-import { Layout, Spin } from "antd";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { Layout } from "antd";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import "./App.css";
 
 import AppHeader from "./components/AppHeader";
@@ -11,6 +19,22 @@ const LinkShare = lazy(() => import("./pages/linkShare"));
 const PackageTracker = lazy(() => import("./pages/packageTracker"));
 
 const { Content } = Layout;
+
+function LoadingFallbackMarker({ onShow }) {
+  useEffect(() => {
+    onShow();
+  }, [onShow]);
+
+  return null;
+}
+
+function LoadedContentMarker({ onLoad }) {
+  useEffect(() => {
+    onLoad();
+  }, [onLoad]);
+
+  return null;
+}
 
 function isStandaloneApp() {
   return (
@@ -29,13 +53,79 @@ function isIOSDevice() {
 
 export default function App() {
   const [activeTab, setActiveTab] = useLocalState("platform", "packageTracker");
+  const [, startTransition] = useTransition();
 
   const [trackingNumber, setTrackingNumber] = useQueryState("tracking", "");
 
   const [installPrompt, setInstallPrompt] = useState(null);
   const [isAppInstalled, setIsAppInstalled] = useState(isStandaloneApp);
+  const [isLoadingVisible, setIsLoadingVisible] = useState(false);
+  const [isLoadingExiting, setIsLoadingExiting] = useState(false);
+  const [hasInitialContentLoaded, setHasInitialContentLoaded] = useState(false);
+  const hasInitializedRef = useRef(false);
+  const loadingStartedAtRef = useRef(null);
 
   const isIOS = isIOSDevice();
+
+  const showLoading = useCallback(() => {
+    if (hasInitializedRef.current) {
+      return;
+    }
+
+    if (loadingStartedAtRef.current === null) {
+      loadingStartedAtRef.current = performance.now();
+    }
+
+    setIsLoadingExiting(false);
+    setIsLoadingVisible(true);
+  }, []);
+
+  const finishLoading = useCallback(() => {
+    if (hasInitializedRef.current) {
+      return;
+    }
+
+    hasInitializedRef.current = true;
+    setHasInitialContentLoaded(true);
+  }, []);
+
+  const handleTabChange = useCallback(
+    (tab) => {
+      startTransition(() => {
+        setTrackingNumber();
+        setActiveTab(tab);
+      });
+    },
+    [setActiveTab, startTransition],
+  );
+
+  useEffect(() => {
+    if (!hasInitialContentLoaded || !isLoadingVisible) {
+      return;
+    }
+
+    const elapsed = performance.now() - loadingStartedAtRef.current;
+    const remaining = Math.max(0, 1000 - elapsed);
+    const timeoutId = window.setTimeout(
+      () => setIsLoadingExiting(true),
+      remaining,
+    );
+
+    return () => window.clearTimeout(timeoutId);
+  }, [hasInitialContentLoaded, isLoadingVisible]);
+
+  useEffect(() => {
+    if (!isLoadingExiting) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setIsLoadingVisible(false);
+      setIsLoadingExiting(false);
+    }, 200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isLoadingExiting]);
 
   // iPhone/iPad cần hướng dẫn cài đặt thủ công.
   const shouldShowInstallGuide = isIOS && !isAppInstalled;
@@ -117,20 +207,23 @@ export default function App() {
       }}
     >
       <Layout className="app-layout">
-        <AppHeader activeTab={activeTab} onTabChange={setActiveTab} />
-
+        <AppHeader activeTab={activeTab} onTabChange={handleTabChange} />
         <Content className="app-content">
-          <Suspense
-            fallback={
-              <div style={{ padding: 12, textAlign: "center" }}>
-                <Spin />
-              </div>
-            }
-          >
+          <Suspense fallback={<LoadingFallbackMarker onShow={showLoading} />}>
             {renderContent()}
+            <LoadedContentMarker onLoad={finishLoading} />
           </Suspense>
         </Content>
       </Layout>
+      {isLoadingVisible && (
+        <div
+          className={`app-loading-fallback${isLoadingExiting ? " app-loading-fallback--exiting" : ""}`}
+          aria-hidden="true"
+        >
+          <img src="/icon-512.png" alt="" width="100" height="100" />
+          <div className="app-loading-credit">dev by HaoDev</div>
+        </div>
+      )}
     </GlobalContext.Provider>
   );
 }
