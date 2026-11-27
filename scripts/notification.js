@@ -18,11 +18,12 @@ export function getStatusEventId(trackingNumber, status) {
 }
 
 export async function sendPendingNotifications() {
-  const events = await db.collectionGroup("notificationQueue").get();
+  const events = await db
+    .collectionGroup("notificationQueue")
+    .where("state", "==", "pending")
+    .get();
 
   for (const event of events.docs) {
-    if (event.data().state !== "pending") continue;
-
     try {
       await sendNotificationEvent(event);
     } catch (error) {
@@ -32,7 +33,10 @@ export async function sendPendingNotifications() {
 }
 
 export async function cleanupCompletedNotificationEvents() {
-  const events = await db.collectionGroup("notificationQueue").get();
+  const events = await db
+    .collectionGroup("notificationQueue")
+    .where("completed", "==", true)
+    .get();
   let deletedCount = 0;
 
   for (const completedEvent of events.docs) {
@@ -136,8 +140,10 @@ async function sendNotificationEvent(event) {
   }
 
   let pendingTokens = eventData.pendingTokens;
+  let tokenDocuments = null;
   if (!Array.isArray(pendingTokens)) {
     const tokenSnapshot = await userRef.collection("fcmTokens").get();
+    tokenDocuments = tokenSnapshot.docs;
     pendingTokens = tokenSnapshot.docs
       .map((tokenDoc) => tokenDoc.data().token || tokenDoc.id)
       .filter(Boolean);
@@ -158,6 +164,17 @@ async function sendNotificationEvent(event) {
       updatedAt: FieldValue.serverTimestamp(),
     });
   }
+
+  if (!tokenDocuments) {
+    const tokenSnapshot = await userRef.collection("fcmTokens").get();
+    tokenDocuments = tokenSnapshot.docs;
+  }
+  const tokenDocumentByValue = new Map(
+    tokenDocuments.map((tokenDoc) => [
+      tokenDoc.data().token || tokenDoc.id,
+      tokenDoc,
+    ]),
+  );
 
   const tokensToProcess = pendingTokens;
   const pendingTokenSet = new Set(pendingTokens);
@@ -190,7 +207,7 @@ async function sendNotificationEvent(event) {
         pendingTokenSet.delete(token);
       }
       if (!result.success && INVALID_TOKEN_CODES.has(result.error?.code)) {
-        await userRef.collection("fcmTokens").doc(token).delete();
+        await tokenDocumentByValue.get(token)?.ref.delete();
         console.log(`Removed invalid FCM token for user ${userRef.id}`);
       } else if (!result.success) {
         console.error(

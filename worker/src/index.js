@@ -1,4 +1,4 @@
-import { pollSPX } from "./spx.js";
+import { cleanupExpiredNotificationEvents, pollSPX } from "./spx.js";
 
 const html = `
 <!DOCTYPE html>
@@ -289,10 +289,14 @@ async function runForAdmin(env, testNotification = false) {
 }
 
 export default {
-  async scheduled(_event, env, context) {
+  async scheduled(event, env, context) {
+    const scheduledTask =
+      event.cron === "0 3 * * *"
+        ? cleanupExpiredNotificationEvents(env)
+        : pollSPX(env);
     context.waitUntil(
-      pollSPX(env).catch((error) => {
-        console.error("FATAL SPX polling error:", error);
+      scheduledTask.catch((error) => {
+        console.error("FATAL SPX scheduled task error:", error);
       }),
     );
   },

@@ -116,7 +116,20 @@ export async function getDocument(env, path) {
   return { ...document, data: decodeFields(document.fields) };
 }
 
-export async function listCollectionGroup(env, collectionId) {
+export async function listCollectionGroup(
+  env,
+  collectionId,
+  { field, equals } = {},
+) {
+  const where = field
+    ? {
+        fieldFilter: {
+          field: { fieldPath: field },
+          op: "EQUAL",
+          value: toFirestoreValue(equals),
+        },
+      }
+    : undefined;
   const result = await firebaseRequest(
     env,
     `${firestoreRoot(env)}:runQuery`,
@@ -125,6 +138,7 @@ export async function listCollectionGroup(env, collectionId) {
       body: JSON.stringify({
         structuredQuery: {
           from: [{ collectionId, allDescendants: true }],
+          ...(where ? { where } : {}),
         },
       }),
     },

@@ -2,7 +2,6 @@ import { FieldValue } from "firebase-admin/firestore";
 import { db } from "./firebase-admin.js";
 import { getSPXTracking } from "./spx-api.js";
 import {
-  cleanupCompletedNotificationEvents,
   getStatusEventId,
   sendPendingNotifications,
   sendTestNotifications,
@@ -55,12 +54,9 @@ async function updateTrackingStatus(watchRef, userRef, trackingNumber, latest) {
 
     const current = watchSnapshot.data();
     const hadPreviousStatus = hasPreviousStatus(current);
-    const statusCodeChanged =
-      current.lastStatusCode &&
-      String(current.lastStatusCode) !== latest.statusCode;
     const changed =
       current.lastStatus !== latest.status ||
-      statusCodeChanged ||
+      String(current.lastStatusCode ?? "") !== String(latest.statusCode ?? "") ||
       normalizeTimestamp(current.lastCheckpointTime ?? current.lastStatusAt) !==
         normalizeTimestamp(latest.timestamp);
     const completed = isCompletedStatus(latest);
@@ -216,7 +212,6 @@ async function pollSPX() {
   }
 
   await sendPendingNotifications();
-  await cleanupCompletedNotificationEvents();
   console.log("========== SPX POLLING SUMMARY ==========");
   console.log(JSON.stringify({ total: snapshot.size, ...summary }, null, 2));
   if (summary.errors > 0) process.exitCode = 1;

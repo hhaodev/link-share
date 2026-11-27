@@ -23,7 +23,7 @@ const TERMINAL_NOTIFICATION_STATES = new Set([
   "no_tokens",
   "completed",
 ]);
-const NOTIFICATION_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+const NOTIFICATION_RETENTION_MS = 1 * 24 * 60 * 60 * 1000;
 
 function documentId(document) {
   return document.name.split("/").pop();
@@ -125,15 +125,8 @@ function logTable(title, columns, rows) {
 }
 
 async function hasUserFcmTokens(env, user, tokenCache) {
-  if (!tokenCache.has(user)) {
-    tokenCache.set(
-      user,
-      listSubcollection(env, user, "fcmTokens").then(
-        (documents) => documents.length > 0,
-      ),
-    );
-  }
-  return tokenCache.get(user);
+  const documents = await getUserTokenDocuments(env, user, tokenCache);
+  return documents.length > 0;
 }
 
 async function shouldDeleteCompletedWatch(env, user, settingsCache) {
@@ -146,6 +139,13 @@ async function shouldDeleteCompletedWatch(env, user, settingsCache) {
     );
   }
   return settingsCache.get(user);
+}
+
+async function getUserTokenDocuments(env, user, tokenCache) {
+  if (!tokenCache.has(user)) {
+    tokenCache.set(user, listSubcollection(env, user, "fcmTokens"));
+  }
+  return tokenCache.get(user);
 }
 
 function hasPreviousStatus(data) {
@@ -257,8 +257,7 @@ async function updateTrackingStatus(
   const hadPreviousStatus = hasPreviousStatus(current);
   const changed =
     current.lastStatus !== latest.status ||
-    (current.lastStatusCode &&
-      String(current.lastStatusCode) !== latest.statusCode) ||
+    String(current.lastStatusCode ?? "") !== String(latest.statusCode ?? "") ||
     normalizeTimestamp(current.lastCheckpointTime ?? current.lastStatusAt) !==
       normalizeTimestamp(latest.timestamp);
   const completed = isCompletedStatus(latest);
@@ -451,8 +450,8 @@ async function sendToToken(env, projectId, token, message) {
   }
 }
 
-async function getUserTokens(env, user) {
-  const documents = await listSubcollection(env, user, "fcmTokens");
+async function getUserTokens(env, user, tokenCache) {
+  const documents = await getUserTokenDocuments(env, user, tokenCache);
   return documents
     .map((document) => ({
       token: document.data.token || documentId(document),
@@ -467,6 +466,7 @@ async function sendNotificationEvent(
   event,
   accountCache,
   logRows,
+  tokenCache,
 ) {
   let eventDocument = event;
   let eventData = event.data;
@@ -481,7 +481,7 @@ async function sendNotificationEvent(
 
   let pendingTokens = eventData.pendingTokens;
   if (!Array.isArray(pendingTokens)) {
-    const userTokens = await getUserTokens(env, user);
+    const userTokens = await getUserTokens(env, user, tokenCache);
     pendingTokens = [...new Set(userTokens.map(({ token }) => token))];
     if (pendingTokens.length === 0) {
       await commitWrites(env, [
@@ -520,7 +520,7 @@ async function sendNotificationEvent(
   }
 
   const pendingTokenSet = new Set(pendingTokens);
-  const tokenDocuments = await getUserTokens(env, user);
+  const tokenDocuments = await getUserTokens(env, user, tokenCache);
   const tokenDocumentByValue = new Map(
     tokenDocuments.map(({ token, document }) => [token, document]),
   );
@@ -644,19 +644,31 @@ async function sendNotificationEvent(
   });
 }
 
-async function sendPendingNotifications(env, projectId, accountCache) {
-  const events = await listCollectionGroup(env, "notificationQueue");
-  const pendingEvents = events.filter(
-    (event) => event.data.state === "pending",
-  );
+async function sendPendingNotifications(
+  env,
+  projectId,
+  accountCache,
+  tokenCache,
+) {
+  const pendingEvents = await listCollectionGroup(env, "notificationQueue", {
+    field: "state",
+    equals: "pending",
+  });
   console.log(
-    `[NOTIFICATION QUEUE] scanned=${events.length} pending=${pendingEvents.length}`,
+    `[NOTIFICATION QUEUE] scanned=${pendingEvents.length} pending=${pendingEvents.length}`,
   );
   let errors = 0;
   const logRows = [];
   for (const event of pendingEvents) {
     try {
-      await sendNotificationEvent(env, projectId, event, accountCache, logRows);
+      await sendNotificationEvent(
+        env,
+        projectId,
+        event,
+        accountCache,
+        logRows,
+        tokenCache,
+      );
     } catch (error) {
       errors += 1;
       const account = await getAccountInfo(env, userId(event), accountCache);
@@ -689,14 +701,22 @@ async function sendPendingNotifications(env, projectId, accountCache) {
   );
   return {
     errors,
-    scanned: events.length,
+    scanned: pendingEvents.length,
     pending: pendingEvents.length,
     rows: logRows,
   };
 }
 
-async function cleanupExpiredNotificationEvents(env) {
-  const events = await listCollectionGroup(env, "notificationQueue");
+export async function cleanupExpiredNotificationEvents(env) {
+  const terminalEventGroups = await Promise.all(
+    [...TERMINAL_NOTIFICATION_STATES].map((state) =>
+      listCollectionGroup(env, "notificationQueue", {
+        field: "state",
+        equals: state,
+      }),
+    ),
+  );
+  const events = terminalEventGroups.flat();
   const cutoff = Date.now() - NOTIFICATION_RETENTION_MS;
   const expiredEvents = events.filter((event) => {
     if (
@@ -718,7 +738,7 @@ async function cleanupExpiredNotificationEvents(env) {
   }
 
   console.log(
-    `Expired notification events deleted: ${deletedCount} (retention: 7 days)`,
+    `Expired notification events deleted: ${deletedCount} (retention: 24 hours)`,
   );
   return deletedCount;
 }
@@ -753,8 +773,8 @@ async function sendTestNotifications(env, projectId, accountCache) {
       batchTargets.map((target) =>
         sendToToken(env, projectId, target.token, {
           notification: {
-            title: "Space Tool - Thông báo thử",
-            body: "Thông báo push hoạt động bình thường.",
+            title: "Thông báo mới",
+            body: "Test thông báo.",
           },
           data: { type: "TEST_NOTIFICATION" },
         }),
@@ -1076,6 +1096,7 @@ export async function pollSPX(env, testNotification = false) {
         env,
         projectId,
         accountCache,
+        tokenCache,
       );
       summary.notificationErrors = notificationResult.errors;
       report.tables.notifications = notificationResult.rows;
@@ -1083,11 +1104,6 @@ export async function pollSPX(env, testNotification = false) {
         scanned: notificationResult.scanned,
         pending: notificationResult.pending,
         errors: notificationResult.errors,
-      });
-      const deletedNotifications = await cleanupExpiredNotificationEvents(env);
-      addRunEvent(report, "info", "Expired notification cleanup finished", {
-        deleted: deletedNotifications,
-        retentionDays: 7,
       });
       report.summary = { total: watchDocuments.length, ...summary };
       console.log("========== SPX POLLING SUMMARY ==========");
