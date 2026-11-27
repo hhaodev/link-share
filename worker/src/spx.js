@@ -484,14 +484,7 @@ async function sendNotificationEvent(
     const userTokens = await getUserTokens(env, user, tokenCache);
     pendingTokens = [...new Set(userTokens.map(({ token }) => token))];
     if (pendingTokens.length === 0) {
-      await commitWrites(env, [
-        updateWrite(
-          eventDocument,
-          { state: "no_tokens" },
-          ["state"],
-          ["updatedAt"],
-        ),
-      ]);
+      await commitWrites(env, [deleteWrite(eventDocument)]);
       addLogRow(logRows, {
         account: account.name,
         uid: account.uid,
@@ -518,9 +511,32 @@ async function sendNotificationEvent(
     };
     eventData = { ...eventData, pendingTokens };
   }
+  if (pendingTokens.length === 0) {
+    await commitWrites(env, [deleteWrite(eventDocument)]);
+    addLogRow(logRows, {
+      account: account.name,
+      uid: account.uid,
+      tracking: eventData.trackingNumber,
+      status: eventData.status || "-",
+      device: "TOTAL",
+      result: "no pending devices",
+      error: "Notification event removed because it has no retry tokens",
+    });
+    return;
+  }
 
   const pendingTokenSet = new Set(pendingTokens);
-  const tokenDocuments = await getUserTokens(env, user, tokenCache);
+  const cachedTokenDocuments = await getUserTokenDocuments(
+    env,
+    user,
+    tokenCache,
+  );
+  const tokenDocuments = cachedTokenDocuments
+    .map((document) => ({
+      token: document.data.token || documentId(document),
+      document,
+    }))
+    .filter(({ token }) => Boolean(token));
   const tokenDocumentByValue = new Map(
     tokenDocuments.map(({ token, document }) => [token, document]),
   );
@@ -608,22 +624,42 @@ async function sendNotificationEvent(
     });
 
     const updatedTokens = [...pendingTokenSet];
-    writes.push(
-      updateWrite(
-        eventDocument,
-        {
-          pendingTokens: updatedTokens,
-          state: updatedTokens.length === 0 ? "sent" : "pending",
-        },
-        ["pendingTokens", "state"],
-        ["updatedAt"],
-      ),
-    );
+    if (updatedTokens.length === 0) {
+      writes.push(deleteWrite(eventDocument));
+    } else {
+      writes.push(
+        updateWrite(
+          eventDocument,
+          { pendingTokens: updatedTokens, state: "pending" },
+          ["pendingTokens", "state"],
+          ["updatedAt"],
+        ),
+      );
+    }
     const committed = await commitWrites(env, writes);
-    eventDocument = {
-      ...eventDocument,
-      updateTime: committed.writeResults?.[writes.length - 1]?.updateTime,
-    };
+    const invalidTokenDocuments = new Set(
+      results
+        .filter((result) =>
+          INVALID_FCM_STATUSES.has(result.errorStatus),
+        )
+        .map((result) => tokenDocumentByValue.get(result.token))
+        .filter(Boolean),
+    );
+    if (invalidTokenDocuments.size > 0) {
+      cachedTokenDocuments.splice(
+        0,
+        cachedTokenDocuments.length,
+        ...cachedTokenDocuments.filter(
+          (document) => !invalidTokenDocuments.has(document),
+        ),
+      );
+    }
+    if (updatedTokens.length > 0) {
+      eventDocument = {
+        ...eventDocument,
+        updateTime: committed.writeResults?.[writes.length - 1]?.updateTime,
+      };
+    }
   }
 
   addLogRow(logRows, {
